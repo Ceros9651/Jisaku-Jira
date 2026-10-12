@@ -1,0 +1,128 @@
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.table th {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-align: left;
+}
+
+.row td {
+  padding: 0 var(--space-2);
+  height: 38px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  vertical-align: middle;
+}
+
+.row:hover td {
+  background: var(--surface-sunken);
+}
+
+.selected td,
+.selected:hover td {
+  background: var(--accent-subtle);
+}
+
+.dragging {
+  position: relative;
+  z-index: 1;
+}
+
+.dragging td {
+  background: var(--surface);
+  box-shadow: var(--shadow-overlay);
+}
+
+.handleCol {
+  width: 28px;
+  padding-right: 0 !important;
+}
+
+.idCol {
+  width: 76px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.statusCol {
+  width: 128px;
+}
+
+.pointsCol {
+  width: 48px;
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--gray-300);
+  cursor: grab;
+  touch-action: none;
+}
+
+.row:hover .handle,
+.handle:focus-visible {
+  color: var(--gray-500);
+}
+
+.dragging .handle {
+  cursor: grabbing;
+}
+
+.titleCell {
+  overflow: hidden;
+}
+
+.title {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.title:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+@media (max-width: 560px) {
+  .idCol {
+    width: 52px;
+    font-size: var(--text-xs);
+  }
+
+  .statusCol {
+    width: 104px;
+  }
+
+  .row td,
+  .table th {
+    padding-left: var(--space-1);
+    padding-right: var(--space-1);
+  }
+}

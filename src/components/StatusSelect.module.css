@@ -1,0 +1,27 @@
+.select {
+  height: 26px;
+  padding: 0 var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.select:hover {
+  border-color: var(--border-strong);
+}
+
+.todo {
+  color: var(--status-todo);
+}
+
+.in_progress {
+  color: var(--status-progress);
+}
+
+.done {
+  color: var(--status-done);
+}

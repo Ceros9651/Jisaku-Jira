@@ -1,0 +1,58 @@
+/* デザイントークン。ルールは docs/design-principles.md を参照 */
+:root {
+  /* 無彩色の段階 */
+  --gray-0: #ffffff;
+  --gray-50: #f7f7f6;
+  --gray-100: #efefed;
+  --gray-200: #e1e1de;
+  --gray-300: #c9c9c5;
+  --gray-500: #82827d;
+  --gray-700: #4a4a46;
+  --gray-900: #1e1e1c;
+
+  /* アクセント（主ボタン・選択・フォーカス・リンクだけ） */
+  --accent: #1f5fbf;
+  --accent-hover: #194f9f;
+  --accent-subtle: #e9f0fb;
+
+  /* ステータス表示（文字ラベルの補助） */
+  --status-todo: var(--gray-700);
+  --status-progress: #1f5fbf;
+  --status-done: #2f7a3e;
+
+  /* 警告・エラー */
+  --danger: #b42318;
+  --danger-subtle: #fdeceb;
+  --warning-subtle: #fff6dc;
+  --warning-border: #e6c55c;
+
+  --text: var(--gray-900);
+  --text-muted: var(--gray-500);
+  --border: var(--gray-200);
+  --border-strong: var(--gray-300);
+  --surface: var(--gray-0);
+  --surface-sunken: var(--gray-50);
+
+  /* 余白 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* 文字 */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 18px;
+
+  /* 角丸 */
+  --radius-control: 4px;
+  --radius-panel: 6px;
+
+  /* 影（上に重なるものだけ） */
+  --shadow-overlay: 0 8px 24px rgb(0 0 0 / 0.16);
+}
