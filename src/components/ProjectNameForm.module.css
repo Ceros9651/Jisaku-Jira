@@ -1,0 +1,51 @@
+.tab,
+.heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.input {
+  min-width: 0;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.input:focus-visible {
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
+  outline-offset: 0;
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--danger);
+  outline-color: var(--danger);
+}
+
+.tab .input {
+  width: 160px;
+  height: 26px;
+  font-size: var(--text-sm);
+}
+
+/* 見出し（h1）と同じ大きさで、その場で書き換えているように見せる */
+.heading .input {
+  width: 280px;
+  height: 30px;
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.error {
+  color: var(--danger);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}

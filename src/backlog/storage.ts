@@ -41,6 +41,29 @@ export function saveBacklog(storage: Storage | null, backlog: Backlog): boolean 
   }
 }
 
+/** 最後に選んだプロジェクトの id。タブの切り替えでデータが変わらないよう、バックログとは別に保存する */
+export const ACTIVE_PROJECT_KEY = 'jisaku-jira:active-project';
+
+/** 記憶したプロジェクトの id。無い、読めない、ストレージが使えないときは null */
+export function loadActiveProject(storage: Storage | null): number | null {
+  if (storage === null) return null;
+  try {
+    const value = Number(storage.getItem(ACTIVE_PROJECT_KEY));
+    return Number.isInteger(value) && value >= 1 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 書き込みの失敗は無視する（記憶できないだけで、次は最初のプロジェクトを表示する） */
+export function saveActiveProject(storage: Storage | null, id: number): void {
+  try {
+    storage?.setItem(ACTIVE_PROJECT_KEY, String(id));
+  } catch {
+    // 無視する
+  }
+}
+
 export function serializeBacklog(backlog: Backlog): string {
   return JSON.stringify(backlog, null, 2);
 }

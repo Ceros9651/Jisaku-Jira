@@ -8,8 +8,13 @@
   justify-content: space-between;
   height: 48px;
   padding: 0 var(--space-5);
-  border-bottom: 1px solid var(--border);
   background: var(--surface-sunken);
+}
+
+/* プロジェクトのタブが無い読み込みエラーの画面では、ヘッダーとの境に罫線を引く */
+.header + .loadError,
+.header + [role='alert'] {
+  border-top: 1px solid var(--border);
 }
 
 .appName {
@@ -47,13 +52,16 @@
 
 .titleRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-4);
   margin-bottom: var(--space-3);
 }
 
 .heading {
+  min-width: 0;
   margin: 0;
+  overflow-wrap: anywhere;
   font-size: var(--text-lg);
   font-weight: 700;
 }
@@ -107,6 +115,34 @@
 .done {
   background: var(--status-done-bg);
   color: var(--status-done);
+}
+
+/* 選択中のプロジェクトへの操作。行のコピーと同じく、普段は控えめな文字のボタン */
+.projectActions {
+  display: flex;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+.quiet {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.quiet:hover:not(:disabled),
+.quiet:focus-visible {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.quiet:disabled {
+  color: var(--gray-300);
+  cursor: default;
 }
 
 .empty {
