@@ -199,12 +199,19 @@
 .warning,
 .error {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
   padding: var(--space-2) var(--space-5);
   border-bottom: 1px solid;
   font-size: var(--text-sm);
+}
+
+.bannerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
 }
 
 .warning {
@@ -218,9 +225,13 @@
   color: var(--danger);
 }
 
+/* 上の罫線は画面の幅いっぱいに引き、文の幅だけを絞る */
 .loadError {
-  max-width: 640px;
   padding: var(--space-6) var(--space-5);
+}
+
+.loadError > * {
+  max-width: 600px;
 }
 
 .loadError p {

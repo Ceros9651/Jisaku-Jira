@@ -1,0 +1,17 @@
+rules_version = '2';
+
+// サインインは設けない。アプリの URL を知っている人は誰でも共有データを読み書きできる。
+// 読み書きできるのはアプリが使う backlogs/shared の1件だけで、削除と他のパスは拒否する。
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /backlogs/shared {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['json', 'ops', 'updatedAt'])
+                            && request.resource.data.json is string
+                            && request.resource.data.json.size() < 900000
+                            && request.resource.data.ops is list
+                            && request.resource.data.ops.size() <= 50
+                            && request.resource.data.updatedAt == request.time;
+    }
+  }
+}

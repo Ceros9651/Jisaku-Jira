@@ -3,11 +3,12 @@ import { emptyBacklog } from './model';
 import { backlogReducer } from './reducer';
 import {
   ACTIVE_PROJECT_KEY,
-  STORAGE_KEY,
+  LEGACY_STORAGE_KEY,
   loadActiveProject,
-  loadBacklog,
+  loadLegacyBacklog,
+  removeLegacyBacklog,
   saveActiveProject,
-  saveBacklog,
+  serializeBacklog,
 } from './storage';
 
 const now = '2026-10-12T00:00:00.000Z';
@@ -19,27 +20,30 @@ const failing = {
   setItem: () => {
     throw new DOMException('quota', 'QuotaExceededError');
   },
+  removeItem: () => {
+    throw new DOMException('denied', 'SecurityError');
+  },
 } as unknown as Storage;
 
-test('保存データがなければ empty', () => {
-  expect(loadBacklog(localStorage)).toEqual({ kind: 'empty' });
+test('以前のデータがなければ empty', () => {
+  expect(loadLegacyBacklog(localStorage)).toEqual({ kind: 'empty' });
 });
 
-test('保存→読み込みでプロジェクト・内容・順序・nextNumber が一致する', () => {
+test('以前のデータのプロジェクト・内容・順序・nextNumber を読み込む', () => {
   let backlog = backlogReducer(emptyBacklog(), { type: 'createProject', name: 'Tool' });
   for (const title of ['a', 'b', 'c']) backlog = backlogReducer(backlog, { type: 'create', projectId: 1, title, now });
   backlog = backlogReducer(backlog, { type: 'create', projectId: 2, title: 'd', now });
   backlog = backlogReducer(backlog, { type: 'delete', number: 3 });
   backlog = backlogReducer(backlog, { type: 'move', number: 2, toIndex: 0 });
+  localStorage.setItem(LEGACY_STORAGE_KEY, serializeBacklog(backlog));
 
-  expect(saveBacklog(localStorage, backlog)).toBe(true);
-  expect(loadBacklog(localStorage)).toEqual({ kind: 'loaded', backlog });
+  expect(loadLegacyBacklog(localStorage)).toEqual({ kind: 'loaded', backlog });
   expect(backlog.nextNumber).toBe(5);
 });
 
-test('旧形式（version 1）の保存データは「マイプロジェクト」1つの version 2 として読み込む', () => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, nextNumber: 4, items: [pbi(1), pbi(2)] }));
-  expect(loadBacklog(localStorage)).toEqual({
+test('旧形式（version 1）の以前のデータは「マイプロジェクト」1つの version 2 として読み込む', () => {
+  localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify({ version: 1, nextNumber: 4, items: [pbi(1), pbi(2)] }));
+  expect(loadLegacyBacklog(localStorage)).toEqual({
     kind: 'loaded',
     backlog: {
       version: 2,
@@ -50,19 +54,25 @@ test('旧形式（version 1）の保存データは「マイプロジェクト�
   });
 });
 
-test('壊れた JSON は error になり、保存データは消さない', () => {
-  localStorage.setItem(STORAGE_KEY, '{ broken');
-  expect(loadBacklog(localStorage).kind).toBe('error');
-  expect(localStorage.getItem(STORAGE_KEY)).toBe('{ broken');
+test('壊れた JSON は error になり、以前のデータは消さない', () => {
+  localStorage.setItem(LEGACY_STORAGE_KEY, '{ broken');
+  expect(loadLegacyBacklog(localStorage).kind).toBe('error');
+  expect(localStorage.getItem(LEGACY_STORAGE_KEY)).toBe('{ broken');
 });
 
-test('書き込みが例外になったら false を返す', () => {
-  expect(saveBacklog(failing, emptyBacklog())).toBe(false);
+test('removeLegacyBacklog でキーが消え、他のキーは残る', () => {
+  localStorage.setItem(LEGACY_STORAGE_KEY, serializeBacklog(emptyBacklog()));
+  saveActiveProject(localStorage, 2);
+  removeLegacyBacklog(localStorage);
+  expect(localStorage.getItem(LEGACY_STORAGE_KEY)).toBeNull();
+  expect(loadActiveProject(localStorage)).toBe(2);
 });
 
-test('ストレージが使えない環境では保存失敗・読み込みは empty', () => {
-  expect(saveBacklog(null, emptyBacklog())).toBe(false);
-  expect(loadBacklog(null)).toEqual({ kind: 'empty' });
+test('ストレージが使えない環境では読み込みは empty で、削除の失敗は無視する', () => {
+  expect(loadLegacyBacklog(null)).toEqual({ kind: 'empty' });
+  expect(loadLegacyBacklog(failing)).toEqual({ kind: 'empty' });
+  expect(() => removeLegacyBacklog(failing)).not.toThrow();
+  expect(() => removeLegacyBacklog(null)).not.toThrow();
 });
 
 describe('最後に選んだプロジェクト', () => {

@@ -1,65 +1,162 @@
 import { act, renderHook } from '@testing-library/react';
+import { backlogOf, pbi } from '../test/backlog';
+import { FakeRemote } from '../test/remote';
 import { emptyBacklog } from './model';
-import { STORAGE_KEY, loadBacklog } from './storage';
 import { useBacklog } from './useBacklog';
 
 const now = '2026-10-12T00:00:00.000Z';
 
-test('操作のたびに保存し、開き直すと同じ内容になる', () => {
-  const first = renderHook(() => useBacklog(localStorage));
-  act(() => first.result.current.dispatch({ type: 'create', projectId: 1, title: 'a', now }));
-  act(() => first.result.current.dispatch({ type: 'create', projectId: 1, title: 'b', now }));
-  act(() => first.result.current.dispatch({ type: 'createProject', name: 'Tool' }));
-  first.unmount();
+const titles = (remote: FakeRemote) => remote.backlog()?.projects[0].items.map((p) => p.title);
 
-  const second = renderHook(() => useBacklog(localStorage));
-  const [mine, tool] = second.result.current.backlog.projects;
-  expect(mine.items.map((p) => p.title)).toEqual(['a', 'b']);
-  expect(tool.name).toBe('Tool');
+test('最初の受信までは loading で、共有データが無ければ空のバックログで ready になる', () => {
+  const remote = new FakeRemote();
+  remote.hold();
+  const { result } = renderHook(() => useBacklog(remote));
+  expect(result.current.status).toBe('loading');
+
+  act(() => remote.flush());
+  expect(result.current.status).toBe('ready');
+  expect(result.current.backlog).toEqual(emptyBacklog());
 });
 
-test('再読み込み後も採番が続く', () => {
-  const first = renderHook(() => useBacklog(localStorage));
-  for (const title of ['a', 'b', 'c']) {
-    act(() => first.result.current.dispatch({ type: 'create', projectId: 1, title, now }));
+test('共有データの内容を表示する', () => {
+  const remote = new FakeRemote(backlogOf(['Web', [pbi(1)]], ['Tool', [pbi(2)]]));
+  const { result } = renderHook(() => useBacklog(remote));
+  expect(result.current.backlog.projects.map((p) => p.name)).toEqual(['Web', 'Tool']);
+});
+
+test('操作は保存の完了を待たずに表示し、完了後も1件のまま', () => {
+  const remote = new FakeRemote();
+  const { result } = renderHook(() => useBacklog(remote));
+  remote.hold();
+  act(() => result.current.dispatch({ type: 'create', projectId: 1, title: 'a', now }));
+  expect(result.current.backlog.projects[0].items.map((p) => p.title)).toEqual(['a']);
+  expect(remote.text).toBeNull();
+
+  act(() => remote.flush());
+  expect(titles(remote)).toEqual(['a']);
+  expect(result.current.backlog.projects[0].items.map((p) => p.title)).toEqual(['a']);
+});
+
+test('保存の完了が受信より後に届いても二重に表示しない', async () => {
+  const remote = new FakeRemote();
+  const { result } = renderHook(() => useBacklog(remote));
+  await act(async () => {
+    result.current.dispatch({ type: 'create', projectId: 1, title: 'a', now });
+  });
+  expect(result.current.backlog.projects[0].items).toHaveLength(1);
+  expect(result.current.backlog.nextNumber).toBe(2);
+});
+
+test('保存に失敗すると表示が共有データに戻り、saveFailed が立つ', async () => {
+  const remote = new FakeRemote(backlogOf(['マイプロジェクト', [pbi(1)]]));
+  const { result } = renderHook(() => useBacklog(remote));
+  remote.failNext();
+  await act(async () => {
+    result.current.dispatch({ type: 'update', number: 1, changes: { status: 'done' }, now });
+  });
+  expect(result.current.backlog.projects[0].items[0].status).toBe('todo');
+  expect(result.current.saveFailed).toBe(true);
+
+  act(() => result.current.dismissSaveFailed());
+  expect(result.current.saveFailed).toBe(false);
+});
+
+test('他の端末の変更が反映される', () => {
+  const remote = new FakeRemote();
+  const { result } = renderHook(() => useBacklog(remote));
+  act(() => remote.push(backlogOf(['マイプロジェクト', [pbi(1, { title: 'ログイン画面' })]])));
+  expect(result.current.backlog.projects[0].items.map((p) => p.title)).toEqual(['ログイン画面']);
+});
+
+test('保存中に他の端末の変更が届いても、未確定の自分の操作は重ねて表示し続ける', () => {
+  const remote = new FakeRemote(backlogOf(['マイプロジェクト', [pbi(1), pbi(2)]]));
+  const { result } = renderHook(() => useBacklog(remote));
+  remote.hold();
+  act(() => result.current.dispatch({ type: 'update', number: 1, changes: { title: '自分' }, now }));
+  act(() => remote.push(backlogOf(['マイプロジェクト', [pbi(1), pbi(2, { title: '他の人' })]])));
+  expect(result.current.backlog.projects[0].items.map((p) => p.title)).toEqual(['自分', '他の人']);
+
+  act(() => remote.flush());
+  expect(titles(remote)).toEqual(['自分', '他の人']);
+  expect(result.current.backlog.projects[0].items.map((p) => p.title)).toEqual(['自分', '他の人']);
+});
+
+test('2つの端末から同時に作成しても番号が重複しない', () => {
+  const remote = new FakeRemote();
+  const a = renderHook(() => useBacklog(remote));
+  const b = renderHook(() => useBacklog(remote));
+  remote.hold();
+  act(() => a.result.current.dispatch({ type: 'create', projectId: 1, title: 'A', now }));
+  act(() => b.result.current.dispatch({ type: 'create', projectId: 1, title: 'B', now }));
+  // どちらも保存前は自分の画面で PBI-1 に見える
+  expect(a.result.current.backlog.projects[0].items[0].number).toBe(1);
+  expect(b.result.current.backlog.projects[0].items[0].number).toBe(1);
+
+  act(() => remote.flush());
+  const expected = [
+    { number: 1, title: 'A' },
+    { number: 2, title: 'B' },
+  ];
+  for (const hook of [a, b]) {
+    expect(hook.result.current.backlog.projects[0].items.map(({ number, title }) => ({ number, title }))).toEqual(expected);
   }
-  act(() => first.result.current.dispatch({ type: 'delete', number: 3 }));
-  first.unmount();
-
-  const second = renderHook(() => useBacklog(localStorage));
-  act(() => second.result.current.dispatch({ type: 'create', projectId: 1, title: 'd', now }));
-  expect(second.result.current.backlog.projects[0].items.map((p) => p.number)).toEqual([1, 2, 4]);
 });
 
-test('旧形式の保存データは、起動直後の保存で version 2 に書き直す', () => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, nextNumber: 1, items: [] }));
-  renderHook(() => useBacklog(localStorage));
-  expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '')).toEqual(emptyBacklog());
+test('別々の PBI の同時の編集は両方残る', () => {
+  const remote = new FakeRemote(backlogOf(['マイプロジェクト', [pbi(1), pbi(2)]]));
+  const a = renderHook(() => useBacklog(remote));
+  const b = renderHook(() => useBacklog(remote));
+  remote.hold();
+  act(() => a.result.current.dispatch({ type: 'update', number: 1, changes: { title: '新しいタイトル' }, now }));
+  act(() => b.result.current.dispatch({ type: 'update', number: 2, changes: { status: 'done' }, now }));
+  act(() => remote.flush());
+
+  for (const hook of [a, b]) {
+    const [first, second] = hook.result.current.backlog.projects[0].items;
+    expect(first.title).toBe('新しいタイトル');
+    expect(second.status).toBe('done');
+  }
 });
 
-test('読み込みエラーの間は保存せず、空で始めると保存を再開する', () => {
-  localStorage.setItem(STORAGE_KEY, '{ broken');
-  const { result } = renderHook(() => useBacklog(localStorage));
+test('読めない共有データでは loadError になり、操作しても書き込まない。空で始めると上書きする', async () => {
+  const remote = new FakeRemote('{ broken');
+  const { result } = renderHook(() => useBacklog(remote));
+  expect(result.current.status).toBe('ready');
   expect(result.current.loadError).not.toBeNull();
 
   act(() => result.current.dispatch({ type: 'create', projectId: 1, title: 'a', now }));
-  expect(localStorage.getItem(STORAGE_KEY)).toBe('{ broken');
+  expect(remote.applyCount).toBe(0);
+  expect(remote.text).toBe('{ broken');
 
-  act(() => result.current.startEmpty());
+  await act(async () => {
+    await expect(result.current.startEmpty()).resolves.toBe(true);
+  });
   expect(result.current.loadError).toBeNull();
-  expect(loadBacklog(localStorage)).toEqual({ kind: 'loaded', backlog: emptyBacklog() });
+  expect(remote.backlog()).toEqual(emptyBacklog());
 });
 
-test('保存に失敗すると saveFailed になる', () => {
-  const failing = {
-    getItem: () => null,
-    setItem: () => {
-      throw new Error('quota');
-    },
-  } as unknown as Storage;
-  const { result } = renderHook(() => useBacklog(failing));
-  expect(result.current.saveFailed).toBe(true);
-  // 画面上の内容は残る
-  act(() => result.current.dispatch({ type: 'create', projectId: 1, title: 'a', now }));
-  expect(result.current.backlog.projects[0].items).toHaveLength(1);
+test('replace は保存できたら true、失敗したら false', async () => {
+  const remote = new FakeRemote();
+  const { result } = renderHook(() => useBacklog(remote));
+  const imported = backlogOf(['Web', [pbi(5)]]);
+  await act(async () => {
+    await expect(result.current.replace(imported)).resolves.toBe(true);
+  });
+  expect(remote.backlog()).toEqual(imported);
+
+  remote.failNext();
+  await act(async () => {
+    await expect(result.current.replace(emptyBacklog())).resolves.toBe(false);
+  });
+  expect(remote.backlog()).toEqual(imported);
+  expect(result.current.backlog).toEqual(imported);
+});
+
+test('購読できなければ error になり、理由を返す', () => {
+  const remote = new FakeRemote();
+  remote.failSubscribe('permission-denied');
+  const { result } = renderHook(() => useBacklog(remote));
+  expect(result.current.status).toBe('error');
+  expect(result.current.connectionError).toBe('permission-denied');
 });
