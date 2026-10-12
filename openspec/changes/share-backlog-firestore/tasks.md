@@ -28,7 +28,7 @@
 ## 6. 公開の準備と手順
 
 - [x] 6.1 Firebase プロジェクトを無料プラン（Spark、支払い方法を登録しない）で作り、Firestore を有効化して `firebase deploy --only firestore:rules` でルールを反映する（**ユーザーの手作業**。apply ではここで手順を示して止まり、完了を確認してから進む）。`.env.local` に値を入れて `npm run dev` を2つのブラウザ（通常とシークレット）で開き、片方での作成・編集・並べ替え・削除・プロジェクトの作成と削除がもう片方に再読み込みなしで出ること、両方で別々の PBI を編集して両方残ること、`#PBI-<番号>` をもう片方で開くと詳細が開くこと、DevTools でオフラインにして操作すると保存失敗の帯が出て表示が戻ることを確認する。Firestore のコンソールで `backlogs/shared` 以外への書き込みと `delete` がルールで拒否されることを Rules Playground で確認する
-- [ ] 6.2 .github/workflows/deploy.yml の build ステップに `env:` で `VITE_FIREBASE_*` の4つを `${{ vars.… }}` から渡す。GitHub の Variables への登録はユーザーの手作業として README に書く。`dev` 向けの PR で CI が通ることを確認する
+- [x] 6.2 .github/workflows/deploy.yml の build ステップに `env:` で `VITE_FIREBASE_*` の4つを `${{ vars.… }}` から渡す。GitHub の Variables への登録はユーザーの手作業として README に書く。`dev` 向けの PR で CI が通ることを確認する
 - [x] 6.3 README を書き換える。「データの保存とバックアップ」を、データは Firestore の共有データにあり、どの端末で開いても同じ内容が出ること、**URL を知っている人は誰でも閲覧・編集・削除できる**こと、定期的にエクスポートしてバックアップすること、無料プラン（Spark）で使い、上限を超えた日は保存できなくなるが課金はされないこと、以前のブラウザのデータの取り込み方（1人だけが取り込む）にする。機能一覧の「リンクはデータのあるブラウザでだけ開ける」を消し、他の端末の変更がすぐ反映されることを足す。「開発」に `.env.local` の作り方を、「GitHub Pages への公開」に Firebase プロジェクトの作成・ルールの反映・Variables の登録の手順を足す。手順どおりに `npm run dev` が起動することを確認する
 
 ## 7. 確認
