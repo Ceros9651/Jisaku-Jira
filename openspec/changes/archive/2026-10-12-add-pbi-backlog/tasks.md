@@ -51,4 +51,4 @@
 ## 8. 結合確認
 
 - [x] 8.1 ビルド成果物を `npm run preview` で開き、PBI 作成→編集→ステータス変更→並べ替え→削除→再作成（欠番の確認）→再読み込み→エクスポート→データ消去→インポートの一連の流れが仕様どおり動くことを確認する
-- [ ] 8.2 `/ui-review` でバックログ画面をレビューし、`anti-patterns.md` の4カテゴリと `docs/design-principles.md` への違反がないことを確認する
+- [x] 8.2 `/ui-review` でバックログ画面をレビューし、`anti-patterns.md` の4カテゴリと `docs/design-principles.md` への違反がないことを確認する
