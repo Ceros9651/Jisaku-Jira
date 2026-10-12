@@ -33,7 +33,7 @@ UI を変更するときは [docs/design-principles.md](docs/design-principles.m
 
 ## GitHub Pages への公開
 
-`main` に push すると、GitHub Actions（[.github/workflows/deploy.yml](.github/workflows/deploy.yml)）がテストとビルドを行い、GitHub Pages に公開する。
+`dev` に push すると、GitHub Actions（[.github/workflows/deploy.yml](.github/workflows/deploy.yml)）が型チェック・テスト・ビルドを行い、GitHub Pages に公開する。`dev` 向けの PR では、公開せずにチェックとビルドだけを行う。
 
 初回だけ、リポジトリの **Settings → Pages → Build and deployment → Source** を **GitHub Actions** にする。
 
