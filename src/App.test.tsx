@@ -1,8 +1,9 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from './App';
-import type { Backlog, Pbi } from './backlog/model';
-import { STORAGE_KEY, loadBacklog } from './backlog/storage';
+import { type Backlog, type Pbi, emptyBacklog } from './backlog/model';
+import { ACTIVE_PROJECT_KEY, STORAGE_KEY, loadBacklog } from './backlog/storage';
+import { backlogOf } from './test/backlog';
 
 const now = '2026-10-12T00:00:00.000Z';
 
@@ -10,9 +11,18 @@ function pbi(number: number, title: string, storyPoints: number | null = null): 
   return { number, title, description: '', status: 'todo', storyPoints, createdAt: now, updatedAt: now };
 }
 
+/** 「マイプロジェクト」1つに PBI を入れて保存する */
 function seed(items: Pbi[], nextNumber = Math.max(0, ...items.map((p) => p.number)) + 1) {
-  const backlog: Backlog = { version: 1, nextNumber, items };
+  seedBacklog({ ...backlogOf(['マイプロジェクト', items]), nextNumber });
+}
+
+function seedBacklog(backlog: Backlog) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(backlog));
+}
+
+/** 最初のプロジェクトの PBI */
+function storedItems(): Pbi[] {
+  return stored().projects[0].items;
 }
 
 function rowTexts(): string[] {
@@ -93,7 +103,7 @@ describe('ステータス', () => {
     render(<App />);
     await user.selectOptions(screen.getByRole('combobox', { name: 'PBI-1 のステータス' }), 'in_progress');
     expect(screen.getByRole('combobox', { name: 'PBI-1 のステータス' })).toHaveValue('in_progress');
-    expect(stored().items[0].status).toBe('in_progress');
+    expect(storedItems()[0].status).toBe('in_progress');
   });
 });
 
@@ -138,7 +148,7 @@ describe('詳細パネル', () => {
 
     expect(rowTexts()).toEqual(['PBI-1', 'PBI-2', 'PBI-3']);
     expect(screen.getByRole('button', { name: '新しいタイトル' })).toBeInTheDocument();
-    expect(stored().items[1]).toMatchObject({ number: 2, title: '新しいタイトル', description: '詳しい説明', storyPoints: 5 });
+    expect(storedItems()[1]).toMatchObject({ number: 2, title: '新しいタイトル', description: '詳しい説明', storyPoints: 5 });
     expect(screen.getByTestId('backlog-summary')).toHaveTextContent('5 pt');
   });
 
@@ -150,7 +160,7 @@ describe('詳細パネル', () => {
     const panel = screen.getByRole('complementary');
     await user.clear(within(panel).getByLabelText('ストーリーポイント'));
     await user.click(within(panel).getByRole('button', { name: '保存' }));
-    expect(stored().items[0].storyPoints).toBeNull();
+    expect(storedItems()[0].storyPoints).toBeNull();
   });
 
   test.each([
@@ -168,7 +178,7 @@ describe('詳細パネル', () => {
     if (value) await user.type(within(panel).getByLabelText(field), value);
     await user.click(within(panel).getByRole('button', { name: '保存' }));
     expect(within(panel).getByRole('alert')).toHaveTextContent(message);
-    expect(stored().items[0]).toMatchObject({ title: 'a', storyPoints: null });
+    expect(storedItems()[0]).toMatchObject({ title: 'a', storyPoints: null });
   });
 
   test('詳細からステータスを変更できる', async () => {
@@ -268,7 +278,7 @@ describe('削除', () => {
 });
 
 describe('インポート', () => {
-  const importData: Backlog = { version: 1, nextNumber: 6, items: [pbi(1, 'x'), pbi(5, 'y')] };
+  const importData = { version: 1, nextNumber: 6, items: [pbi(1, 'x'), pbi(5, 'y')] };
   const jsonFile = (text: string, name = 'backup.json') => new File([text], name, { type: 'application/json' });
 
   test('確認するとバックログを置き換え、採番はファイルの nextNumber から続く', async () => {
@@ -277,7 +287,9 @@ describe('インポート', () => {
     render(<App />);
     await user.upload(screen.getByTestId('import-file'), jsonFile(JSON.stringify(importData)));
     const dialog = await screen.findByRole('alertdialog', { name: 'バックログを置き換えますか？' });
-    expect(dialog).toHaveTextContent('現在のバックログ（1 件）を、「backup.json」の内容（2 件）で置き換えます。');
+    expect(dialog).toHaveTextContent(
+      '現在のデータ（1 プロジェクト・1 件）を、「backup.json」の内容（1 プロジェクト・2 件）で置き換えます。',
+    );
     await user.click(within(dialog).getByRole('button', { name: '置き換える' }));
 
     expect(rowTexts()).toEqual(['PBI-1', 'PBI-5']);
@@ -292,7 +304,7 @@ describe('インポート', () => {
     await user.upload(screen.getByTestId('import-file'), jsonFile(JSON.stringify(importData)));
     await user.click(await screen.findByRole('button', { name: 'キャンセル' }));
     expect(rowTexts()).toEqual(['PBI-1']);
-    expect(stored().items.map((p) => p.title)).toEqual(['current']);
+    expect(storedItems().map((p) => p.title)).toEqual(['current']);
   });
 
   test('不正なファイルは理由を表示し、現在のバックログを変えない', async () => {
@@ -344,16 +356,311 @@ describe('読み込みエラー', () => {
     await user.click(screen.getByRole('button', { name: '空で始める' }));
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '空で始める' }));
     expect(screen.getByText(/PBI はまだありません/)).toBeInTheDocument();
-    expect(stored()).toEqual({ version: 1, nextNumber: 1, items: [] });
+    expect(stored()).toEqual(emptyBacklog());
   });
 
   test('インポートで復元できる', async () => {
     const user = userEvent.setup();
     render(<App />);
-    const data: Backlog = { version: 1, nextNumber: 3, items: [pbi(2, 'restored')] };
+    const data = { version: 1, nextNumber: 3, items: [pbi(2, 'restored')] };
     await user.upload(screen.getByTestId('import-file'), new File([JSON.stringify(data)], 'b.json'));
     await user.click(await screen.findByRole('button', { name: '置き換える' }));
     expect(rowTexts()).toEqual(['PBI-2']);
-    expect(stored()).toEqual(data);
+    expect(stored()).toEqual(backlogOf(['マイプロジェクト', [pbi(2, 'restored')]]));
+  });
+});
+
+/** 「Web」(id 1) と「Tool」(id 2) に PBI を分けたバックログを保存する */
+function seedTwoProjects(web: Pbi[] = [pbi(1, 'a')], tool: Pbi[] = [pbi(2, 'b')]) {
+  seedBacklog(backlogOf(['Web', web], ['Tool', tool]));
+}
+
+function tab(name: string) {
+  return screen.getByRole('tab', { name });
+}
+
+function tabNames(): string[] {
+  return screen.getAllByRole('tab').map((t) => t.textContent ?? '');
+}
+
+describe('選択中のプロジェクト', () => {
+  test('初めて開くと「マイプロジェクト」のタブだけが選ばれている', () => {
+    render(<App />);
+    expect(tabNames()).toEqual(['マイプロジェクト']);
+    expect(tab('マイプロジェクト')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('マイプロジェクト');
+    expect(screen.getByRole('tabpanel', { name: 'マイプロジェクト' })).toBeInTheDocument();
+  });
+
+  test('件数と合計は選択中のプロジェクトだけで数える', () => {
+    seedTwoProjects([pbi(1, 'a', 3), pbi(2, 'b', 5), pbi(3, 'c')], [pbi(4, 'd', 8)]);
+    render(<App />);
+    expect(rowTexts()).toEqual(['PBI-1', 'PBI-2', 'PBI-3']);
+    expect(screen.getByTestId('backlog-summary')).toHaveTextContent('3 件8 pt');
+  });
+
+  test('作成した PBI は選択中のプロジェクトにだけ入り、番号は全体の通し番号になる', async () => {
+    const user = userEvent.setup();
+    seedTwoProjects([pbi(1, 'a'), pbi(2, 'b')], []);
+    localStorage.setItem(ACTIVE_PROJECT_KEY, '2');
+    render(<App />);
+    await user.type(screen.getByRole('textbox', { name: '新しい PBI のタイトル' }), 'tool の PBI{Enter}');
+    expect(rowTexts()).toEqual(['PBI-3']);
+    expect(stored().projects.map((p) => p.items.map((i) => i.number))).toEqual([[1, 2], [3]]);
+  });
+
+  test('別のプロジェクトの PBI のリンクで開くと、そのプロジェクトが選ばれて詳細が開く', async () => {
+    const user = userEvent.setup();
+    seedTwoProjects([pbi(1, 'a')], [pbi(3, 'c')]);
+    localStorage.setItem(ACTIVE_PROJECT_KEY, '1');
+    window.history.replaceState(null, '', '/#PBI-3');
+    render(<App />);
+    expect(tab('Tool')).toHaveAttribute('aria-selected', 'true');
+    expect(rowTexts()).toEqual(['PBI-3']);
+    expect(within(screen.getByRole('complementary')).getByRole('heading', { name: 'PBI-3' })).toBeInTheDocument();
+
+    // 詳細を閉じても同じタブに留まり、それを記憶する
+    await user.click(screen.getByRole('button', { name: '詳細を閉じる' }));
+    expect(tab('Tool')).toHaveAttribute('aria-selected', 'true');
+    expect(localStorage.getItem(ACTIVE_PROJECT_KEY)).toBe('2');
+  });
+
+  test('無い PBI のリンクでは、記憶したプロジェクトの一覧だけを表示する', () => {
+    seedTwoProjects();
+    localStorage.setItem(ACTIVE_PROJECT_KEY, '2');
+    window.history.replaceState(null, '', '/#PBI-9');
+    render(<App />);
+    expect(tab('Tool')).toHaveAttribute('aria-selected', 'true');
+    expect(rowTexts()).toEqual(['PBI-2']);
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  });
+
+  test('記憶したプロジェクトが無くなっていたら最初のタブを表示する', () => {
+    seedTwoProjects();
+    localStorage.setItem(ACTIVE_PROJECT_KEY, '9');
+    render(<App />);
+    expect(tab('Web')).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('旧形式（version 1）の保存データで開くと「マイプロジェクト」に PBI が並び、採番が続く', async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, nextNumber: 4, items: [pbi(1, 'a'), pbi(2, 'b')] }));
+    render(<App />);
+    expect(tabNames()).toEqual(['マイプロジェクト']);
+    expect(rowTexts()).toEqual(['PBI-1', 'PBI-2']);
+    await user.type(screen.getByRole('textbox', { name: '新しい PBI のタイトル' }), 'c{Enter}');
+    expect(rowTexts()).toEqual(['PBI-1', 'PBI-2', 'PBI-4']);
+    expect(stored().version).toBe(2);
+  });
+});
+
+describe('プロジェクトのタブ', () => {
+  test('タブを押すとそのプロジェクトの一覧に切り替わる', async () => {
+    const user = userEvent.setup();
+    seedTwoProjects();
+    render(<App />);
+    expect(rowTexts()).toEqual(['PBI-1']);
+    await user.click(tab('Tool'));
+    expect(rowTexts()).toEqual(['PBI-2']);
+    expect(tab('Tool')).toHaveAttribute('aria-selected', 'true');
+    expect(tab('Web')).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Tool');
+  });
+
+  test('切り替えると詳細パネルが閉じ、ハッシュが消える', async () => {
+    const user = userEvent.setup();
+    seedTwoProjects();
+    window.history.replaceState(null, '', '/#PBI-1');
+    render(<App />);
+    expect(screen.getByRole('complementary')).toBeInTheDocument();
+    await user.click(tab('Tool'));
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+    expect(window.location.hash).toBe('');
+  });
+
+  test('右矢印で隣のタブに移って切り替わり、端では反対側に戻る', async () => {
+    const user = userEvent.setup();
+    seedTwoProjects();
+    render(<App />);
+    await user.click(tab('Web'));
+    await user.keyboard('{ArrowRight}');
+    expect(tab('Tool')).toHaveFocus();
+    expect(tab('Tool')).toHaveAttribute('aria-selected', 'true');
+    expect(rowTexts()).toEqual(['PBI-2']);
+    await user.keyboard('{ArrowRight}');
+    expect(tab('Web')).toHaveFocus();
+    await user.keyboard('{End}');
+    expect(tab('Tool')).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('選択中のタブだけが Tab キーで止まる', () => {
+    seedTwoProjects();
+    render(<App />);
+    expect(tab('Web')).toHaveAttribute('tabindex', '0');
+    expect(tab('Tool')).toHaveAttribute('tabindex', '-1');
+  });
+
+  test('再読み込み後も最後に選んだタブが選ばれる', async () => {
+    const user = userEvent.setup();
+    seedTwoProjects();
+    const first = render(<App />);
+    await user.click(tab('Tool'));
+    first.unmount();
+
+    render(<App />);
+    expect(tab('Tool')).toHaveAttribute('aria-selected', 'true');
+    expect(rowTexts()).toEqual(['PBI-2']);
+  });
+});
+
+describe('プロジェクトの作成', () => {
+  test('名前を入れて Enter で末尾に追加し、その空のバックログに切り替わる', async () => {
+    const user = userEvent.setup();
+    seedTwoProjects();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'プロジェクトを追加' }));
+    await user.type(screen.getByRole('textbox', { name: '新しいプロジェクトの名前' }), '  Docs  {Enter}');
+    expect(tabNames()).toEqual(['Web', 'Tool', 'Docs']);
+    expect(tab('Docs')).toHaveAttribute('aria-selected', 'true');
+    expect(tab('Docs')).toHaveFocus();
+    expect(screen.getByText(/PBI はまだありません/)).toBeInTheDocument();
+    expect(stored().projects.map((p) => p.name)).toEqual(['Web', 'Tool', 'Docs']);
+  });
+
+  test('名前が空のまま Enter ではエラーを表示して作成しない', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'プロジェクトを追加' }));
+    await user.type(screen.getByRole('textbox', { name: '新しいプロジェクトの名前' }), '   {Enter}');
+    expect(screen.getByRole('alert')).toHaveTextContent('プロジェクト名を入力してください');
+    expect(tabNames()).toEqual(['マイプロジェクト']);
+  });
+
+  test('Escape で取り消すと作成しない', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'プロジェクトを追加' }));
+    await user.type(screen.getByRole('textbox', { name: '新しいプロジェクトの名前' }), 'Tool{Escape}');
+    expect(screen.queryByRole('textbox', { name: '新しいプロジェクトの名前' })).not.toBeInTheDocument();
+    expect(tabNames()).toEqual(['マイプロジェクト']);
+  });
+});
+
+describe('プロジェクトの名前変更', () => {
+  test('名前を変えるとタブと見出しが変わり、PBI はそのまま', async () => {
+    const user = userEvent.setup();
+    seedTwoProjects();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'プロジェクトの名前を変更' }));
+    const input = screen.getByRole('textbox', { name: 'プロジェクト名' });
+    expect(input).toHaveValue('Web');
+    await user.clear(input);
+    await user.type(input, 'Web アプリ{Enter}');
+    expect(tabNames()).toEqual(['Web アプリ', 'Tool']);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Web アプリ');
+    expect(rowTexts()).toEqual(['PBI-1']);
+    expect(stored().projects[0]).toMatchObject({ name: 'Web アプリ', items: [pbi(1, 'a')] });
+  });
+
+  test('空の名前ではエラーを表示して変えない', async () => {
+    const user = userEvent.setup();
+    seedTwoProjects();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'プロジェクトの名前を変更' }));
+    await user.clear(screen.getByRole('textbox', { name: 'プロジェクト名' }));
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('alert')).toHaveTextContent('プロジェクト名を入力してください');
+    expect(stored().projects[0].name).toBe('Web');
+  });
+
+  test('Escape で取り消すと変えない', async () => {
+    const user = userEvent.setup();
+    seedTwoProjects();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'プロジェクトの名前を変更' }));
+    await user.type(screen.getByRole('textbox', { name: 'プロジェクト名' }), 'x{Escape}');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Web');
+    expect(tabNames()).toEqual(['Web', 'Tool']);
+  });
+});
+
+describe('プロジェクトの削除', () => {
+  function seedThree() {
+    seedBacklog(
+      backlogOf(['Web', [pbi(1, 'a')]], ['Tool', [pbi(2, 'b'), pbi(3, 'c'), pbi(4, 'd')]], ['Docs', [pbi(5, 'e')]]),
+    );
+    localStorage.setItem(ACTIVE_PROJECT_KEY, '2');
+  }
+
+  test('確認して削除すると PBI ごと消え、左隣に切り替わる', async () => {
+    const user = userEvent.setup();
+    seedThree();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'プロジェクトを削除' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'プロジェクトを削除しますか？' });
+    expect(dialog).toHaveTextContent('「Tool」と PBI 3 件を削除します。元に戻せません。');
+    await user.click(within(dialog).getByRole('button', { name: '削除する' }));
+
+    expect(tabNames()).toEqual(['Web', 'Docs']);
+    expect(tab('Web')).toHaveAttribute('aria-selected', 'true');
+    expect(rowTexts()).toEqual(['PBI-1']);
+    expect(stored().projects.map((p) => p.items.map((i) => i.number))).toEqual([[1], [5]]);
+    expect(stored().nextNumber).toBe(6);
+  });
+
+  test('左隣が無いときは右隣に切り替わる', async () => {
+    const user = userEvent.setup();
+    seedThree();
+    localStorage.setItem(ACTIVE_PROJECT_KEY, '1');
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'プロジェクトを削除' }));
+    await user.click(screen.getByRole('button', { name: '削除する' }));
+    expect(tabNames()).toEqual(['Tool', 'Docs']);
+    expect(tab('Tool')).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('確認で取り消すと削除しない', async () => {
+    const user = userEvent.setup();
+    seedThree();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'プロジェクトを削除' }));
+    await user.click(screen.getByRole('button', { name: 'キャンセル' }));
+    expect(tabNames()).toEqual(['Web', 'Tool', 'Docs']);
+    expect(rowTexts()).toEqual(['PBI-2', 'PBI-3', 'PBI-4']);
+  });
+
+  test('プロジェクトが1つだけのときは削除できない', () => {
+    render(<App />);
+    expect(screen.getByRole('button', { name: 'プロジェクトを削除' })).toBeDisabled();
+  });
+});
+
+describe('インポート（複数のプロジェクト）', () => {
+  test('確認文にプロジェクト数と件数を出し、置き換え後は最初のプロジェクトを選ぶ', async () => {
+    const user = userEvent.setup();
+    seedTwoProjects();
+    localStorage.setItem(ACTIVE_PROJECT_KEY, '2');
+    render(<App />);
+    const data = { ...backlogOf(['Web', [pbi(1, 'x')]], ['Tool', [pbi(5, 'y')]]), nextNumber: 6 };
+    await user.upload(screen.getByTestId('import-file'), new File([JSON.stringify(data)], 'all.json'));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toHaveTextContent(
+      '現在のデータ（2 プロジェクト・2 件）を、「all.json」の内容（2 プロジェクト・2 件）で置き換えます。',
+    );
+    await user.click(within(dialog).getByRole('button', { name: '置き換える' }));
+    expect(tab('Web')).toHaveAttribute('aria-selected', 'true');
+    expect(rowTexts()).toEqual(['PBI-1']);
+    await user.type(screen.getByRole('textbox', { name: '新しい PBI のタイトル' }), 'z{Enter}');
+    expect(rowTexts()).toEqual(['PBI-1', 'PBI-6']);
+  });
+
+  test('別々のプロジェクトに同じ番号がある不正なファイルは読み込まない', async () => {
+    const user = userEvent.setup();
+    seedTwoProjects();
+    render(<App />);
+    const data = backlogOf(['Web', [pbi(1, 'x')]], ['Tool', [pbi(1, 'y')]]);
+    await user.upload(screen.getByTestId('import-file'), new File([JSON.stringify(data)], 'dup.json'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('番号 1 が重複しています');
+    expect(tabNames()).toEqual(['Web', 'Tool']);
   });
 });

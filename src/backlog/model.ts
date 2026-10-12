@@ -20,16 +20,41 @@ export type Pbi = {
   updatedAt: string;
 };
 
-export type Backlog = {
-  version: 1;
-  /** 次に発行する番号。削除しても減らさない */
-  nextNumber: number;
-  /** 配列の順序がバックログの並び順 */
+export type Project = {
+  /** 内部の識別子。名前は変えられ、重複もありうるため */
+  id: number;
+  name: string;
+  /** 配列の順序がこのプロジェクトのバックログの並び順 */
   items: Pbi[];
 };
 
+export type Backlog = {
+  version: 2;
+  /** 次に発行する PBI の番号。全プロジェクト共通で、削除しても減らさない */
+  nextNumber: number;
+  /** 次に発行するプロジェクトの id。削除しても減らさない */
+  nextProjectId: number;
+  /** 配列の順序がタブの順序。常に1つ以上 */
+  projects: Project[];
+};
+
+export const DEFAULT_PROJECT_NAME = 'マイプロジェクト';
+
 export function emptyBacklog(): Backlog {
-  return { version: 1, nextNumber: 1, items: [] };
+  return { version: 2, nextNumber: 1, nextProjectId: 2, projects: [{ id: 1, name: DEFAULT_PROJECT_NAME, items: [] }] };
+}
+
+/** 番号の PBI と、それが属するプロジェクト。無ければ null */
+export function findPbi(backlog: Backlog, number: number): { project: Project; pbi: Pbi } | null {
+  for (const project of backlog.projects) {
+    const pbi = project.items.find((p) => p.number === number);
+    if (pbi) return { project, pbi };
+  }
+  return null;
+}
+
+export function countItems(backlog: Backlog): number {
+  return backlog.projects.reduce((sum, p) => sum + p.items.length, 0);
 }
 
 export function formatPbiId(number: number): string {
@@ -51,6 +76,7 @@ export function isValidStoryPoints(value: unknown): value is number | null {
 }
 
 export const TITLE_REQUIRED = 'タイトルを入力してください';
+export const PROJECT_NAME_REQUIRED = 'プロジェクト名を入力してください';
 export const STORY_POINTS_INVALID = 'ストーリーポイントは 0 以上の整数で入力してください';
 
 /** 前後の空白を除いたタイトル。空なら null */

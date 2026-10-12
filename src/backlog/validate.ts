@@ -1,4 +1,4 @@
-import { type Backlog, type Pbi, isStatus, isValidStoryPoints } from './model';
+import { type Backlog, DEFAULT_PROJECT_NAME, type Pbi, type Project, isStatus, isValidStoryPoints } from './model';
 
 export type ValidationResult = { ok: true; backlog: Backlog } | { ok: false; reason: string };
 
@@ -13,26 +13,79 @@ export function parseBacklogJson(text: string): ValidationResult {
   return validateBacklog(data);
 }
 
+/** version 2 を検証する。プロジェクトの無い version 1 は「マイプロジェクト」1つの version 2 に変換する */
 export function validateBacklog(data: unknown): ValidationResult {
   if (!isObject(data)) return fail('バックログのデータではありません');
-  if (data.version !== 1) return fail(`対応していないデータ形式です（version: ${String(data.version)}）`);
+  if (data.version === 1) return validateVersion1(data);
+  if (data.version === 2) return validateVersion2(data);
+  return fail(`対応していないデータ形式です（version: ${String(data.version)}）`);
+}
+
+function validateVersion1(data: Record<string, unknown>): ValidationResult {
   if (!Array.isArray(data.items)) return fail('items がありません');
   if (!isPositiveInteger(data.nextNumber)) return fail('nextNumber が正の整数ではありません');
+  const items = validateItems(data.items, new Set(), '');
+  if (typeof items === 'string') return fail(items);
+  return {
+    ok: true,
+    backlog: {
+      version: 2,
+      nextNumber: atLeastNext(data.nextNumber, items.map((p) => p.number)),
+      nextProjectId: 2,
+      projects: [{ id: 1, name: DEFAULT_PROJECT_NAME, items }],
+    },
+  };
+}
 
+function validateVersion2(data: Record<string, unknown>): ValidationResult {
+  if (!Array.isArray(data.projects)) return fail('projects がありません');
+  if (data.projects.length === 0) return fail('プロジェクトが1つもありません');
+  if (!isPositiveInteger(data.nextNumber)) return fail('nextNumber が正の整数ではありません');
+  if (!isPositiveInteger(data.nextProjectId)) return fail('nextProjectId が正の整数ではありません');
+
+  const projects: Project[] = [];
+  const projectIds = new Set<number>();
+  // 番号の重複はプロジェクトをまたいで検出する
+  const numbers = new Set<number>();
+  for (const [index, raw] of data.projects.entries()) {
+    const label = `${index + 1} 番目のプロジェクト`;
+    if (!isObject(raw)) return fail(`${label}がプロジェクトのデータではありません`);
+    if (!isPositiveInteger(raw.id)) return fail(`${label}の id が正の整数ではありません`);
+    if (projectIds.has(raw.id)) return fail(`プロジェクトの id ${raw.id} が重複しています`);
+    projectIds.add(raw.id);
+    if (typeof raw.name !== 'string' || raw.name.trim() === '') return fail(`${label}の name が空です`);
+    if (!Array.isArray(raw.items)) return fail(`${label}の items がありません`);
+    const items = validateItems(raw.items, numbers, `${label}の`);
+    if (typeof items === 'string') return fail(items);
+    projects.push({ id: raw.id, name: raw.name.trim(), items });
+  }
+
+  return {
+    ok: true,
+    backlog: {
+      version: 2,
+      nextNumber: atLeastNext(data.nextNumber, [...numbers]),
+      nextProjectId: atLeastNext(data.nextProjectId, [...projectIds]),
+      projects,
+    },
+  };
+}
+
+/** PBI の配列を検証する。不正なら理由の文字列を返す */
+function validateItems(rawItems: unknown[], seen: Set<number>, prefix: string): Pbi[] | string {
   const items: Pbi[] = [];
-  const seen = new Set<number>();
-  for (const [index, raw] of data.items.entries()) {
-    const label = `${index + 1} 件目`;
-    if (!isObject(raw)) return fail(`${label}が PBI のデータではありません`);
-    if (!isPositiveInteger(raw.number)) return fail(`${label}の number が正の整数ではありません`);
-    if (seen.has(raw.number)) return fail(`番号 ${raw.number} が重複しています`);
+  for (const [index, raw] of rawItems.entries()) {
+    const label = `${prefix}${index + 1} 件目`;
+    if (!isObject(raw)) return `${label}が PBI のデータではありません`;
+    if (!isPositiveInteger(raw.number)) return `${label}の number が正の整数ではありません`;
+    if (seen.has(raw.number)) return `番号 ${raw.number} が重複しています`;
     seen.add(raw.number);
-    if (typeof raw.title !== 'string' || raw.title.trim() === '') return fail(`${label}の title が空です`);
-    if (typeof raw.description !== 'string') return fail(`${label}の description が文字列ではありません`);
-    if (!isStatus(raw.status)) return fail(`${label}の status が不正です`);
-    if (!isValidStoryPoints(raw.storyPoints)) return fail(`${label}の storyPoints が不正です`);
+    if (typeof raw.title !== 'string' || raw.title.trim() === '') return `${label}の title が空です`;
+    if (typeof raw.description !== 'string') return `${label}の description が文字列ではありません`;
+    if (!isStatus(raw.status)) return `${label}の status が不正です`;
+    if (!isValidStoryPoints(raw.storyPoints)) return `${label}の storyPoints が不正です`;
     if (typeof raw.createdAt !== 'string' || typeof raw.updatedAt !== 'string') {
-      return fail(`${label}の createdAt / updatedAt が文字列ではありません`);
+      return `${label}の createdAt / updatedAt が文字列ではありません`;
     }
     items.push({
       number: raw.number,
@@ -44,12 +97,12 @@ export function validateBacklog(data: unknown): ValidationResult {
       updatedAt: raw.updatedAt,
     });
   }
+  return items;
+}
 
-  // 手で編集したファイルでも番号が重複しないよう、既存の最大番号より大きくする
-  const maxNumber = items.reduce((max, p) => Math.max(max, p.number), 0);
-  const nextNumber = Math.max(data.nextNumber, maxNumber + 1);
-
-  return { ok: true, backlog: { version: 1, nextNumber, items } };
+/** 手で編集したファイルでも重複しないよう、既存の最大値より大きくする */
+function atLeastNext(next: number, used: number[]): number {
+  return Math.max(next, used.reduce((max, n) => Math.max(max, n), 0) + 1);
 }
 
 function fail(reason: string): ValidationResult {
