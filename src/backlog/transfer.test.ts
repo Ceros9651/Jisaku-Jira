@@ -5,6 +5,7 @@ import { backlogReducer } from './reducer';
 import { serializeBacklog } from './storage';
 import { exportFileName, readBacklogFile } from './transfer';
 import { useBacklog } from './useBacklog';
+import { FakeRemote } from '../test/remote';
 
 const now = '2026-10-12T00:00:00.000Z';
 
@@ -32,8 +33,11 @@ test('インポート後の採番はファイルの nextNumber から続く', as
   const result = await readBacklogFile(file(JSON.stringify(data)));
   if (!result.ok) throw new Error(result.reason);
 
-  const { result: store } = renderHook(() => useBacklog(localStorage));
-  act(() => store.current.replace(result.backlog));
+  const remote = new FakeRemote();
+  const { result: store } = renderHook(() => useBacklog(remote));
+  await act(async () => {
+    await store.current.replace(result.backlog);
+  });
   act(() => store.current.dispatch({ type: 'create', projectId: 1, title: 'new', now }));
   const [web, tool] = store.current.backlog.projects;
   expect(web.items.map((p) => formatPbiId(p.number))).toEqual(['PBI-1', 'PBI-6']);
@@ -48,7 +52,8 @@ test('旧形式（version 1）のファイルは「マイプロジェクト」1�
 });
 
 test('不正なファイルは理由を返し、現在のデータは変わらない', async () => {
-  const { result: store } = renderHook(() => useBacklog(localStorage));
+  const remote = new FakeRemote();
+  const { result: store } = renderHook(() => useBacklog(remote));
   act(() => store.current.dispatch({ type: 'create', projectId: 1, title: 'keep', now }));
   const before = store.current.backlog;
 

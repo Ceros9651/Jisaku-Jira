@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react';
 import { type Backlog, STATUSES, STATUS_LABELS, countItems, findPbi } from './backlog/model';
+import type { BacklogRemote } from './backlog/remote';
+import { getStorage, loadLegacyBacklog, removeLegacyBacklog } from './backlog/storage';
 import { readBacklogFile, downloadBacklog } from './backlog/transfer';
 import { useBacklog } from './backlog/useBacklog';
 import styles from './App.module.css';
@@ -13,8 +15,13 @@ import { useActiveProject } from './useActiveProject';
 import { useSelectedPbi } from './useSelectedPbi';
 
 type Props = {
+  /** 共有データの窓口。main.tsx で Firestore の実装を渡す */
+  remote: BacklogRemote;
   storage?: Storage | null;
 };
+
+/** 置き換えの確認に出す、置き換え後の内容。source は「「backup.json」の内容」など */
+type PendingImport = { backlog: Backlog; source: string; legacy: boolean };
 
 const now = () => new Date().toISOString();
 
@@ -23,13 +30,22 @@ function describeBacklog(backlog: Backlog): string {
   return `${backlog.projects.length} プロジェクト・${countItems(backlog)} 件`;
 }
 
-export function App({ storage }: Props) {
-  const { backlog, dispatch, loadError, saveFailed, startEmpty, replace } = useBacklog(storage);
+export function App({ remote, storage: storageProp }: Props) {
+  const [storage] = useState(() => (storageProp === undefined ? getStorage() : storageProp));
+  const { backlog, dispatch, status, connectionError, loadError, saveFailed, dismissSaveFailed, startEmpty, replace } =
+    useBacklog(remote);
+  const ready = status === 'ready';
   const [selected, select] = useSelectedPbi();
-  const [project, setActiveProject] = useActiveProject(backlog, selected, loadError === null, storage);
+  const [project, setActiveProject] = useActiveProject(backlog, selected, ready && loadError === null, storage);
   const [renaming, setRenaming] = useState(false);
   const [confirmingDeleteProject, setConfirmingDeleteProject] = useState(false);
-  const [pendingImport, setPendingImport] = useState<{ backlog: Backlog; fileName: string } | null>(null);
+  // このブラウザに残った以前のデータ。読めるときだけ知らせ、読めないデータには触れない
+  const [legacy, setLegacy] = useState(() => {
+    const result = loadLegacyBacklog(storage);
+    return result.kind === 'loaded' ? result.backlog : null;
+  });
+  const [confirmingRemoveLegacy, setConfirmingRemoveLegacy] = useState(false);
+  const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [confirmingStartEmpty, setConfirmingStartEmpty] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -61,7 +77,7 @@ export function App({ storage }: Props) {
     const result = await readBacklogFile(file);
     if (result.ok) {
       setImportError(null);
-      setPendingImport({ backlog: result.backlog, fileName: file.name });
+      setPendingImport({ backlog: result.backlog, source: `「${file.name}」の内容`, legacy: false });
     } else {
       setImportError(`「${file.name}」を読み込めませんでした: ${result.reason}`);
     }
@@ -69,10 +85,27 @@ export function App({ storage }: Props) {
 
   const openImport = () => fileInputRef.current?.click();
 
+  async function confirmImport({ backlog: next, legacy: fromLegacy }: PendingImport) {
+    setPendingImport(null);
+    switchProject(next.projects[0].id);
+    // 以前のデータは、共有データに保存できたときだけ消す
+    if ((await replace(next)) && fromLegacy) {
+      removeLegacyBacklog(storage);
+      setLegacy(null);
+    }
+  }
+
+  function removeLegacy() {
+    removeLegacyBacklog(storage);
+    setLegacy(null);
+    setConfirmingRemoveLegacy(false);
+  }
+
   return (
     <div className={styles.app}>
       <header className={styles.header}>
         <span className={styles.appName}>Jisaku Jira</span>
+        {ready && (
         <div className={styles.headerActions}>
           <button type="button" className={styles.secondary} onClick={() => downloadBacklog(backlog)} disabled={loadError !== null}>
             エクスポート
@@ -93,9 +126,29 @@ export function App({ storage }: Props) {
             }}
           />
         </div>
+        )}
       </header>
 
-      {loadError === null && (
+      {status === 'loading' && (
+        <main className={styles.loadError}>
+          <p role="status">読み込み中…</p>
+        </main>
+      )}
+
+      {status === 'error' && (
+        <main className={styles.loadError}>
+          <h1 className={styles.heading}>共有データを読み込めませんでした</h1>
+          <p className={styles.reason}>{connectionError}</p>
+          <p>接続を確認して、再読み込みしてください。</p>
+          <div className={styles.loadErrorActions}>
+            <button type="button" className={styles.primary} onClick={() => window.location.reload()}>
+              再読み込み
+            </button>
+          </div>
+        </main>
+      )}
+
+      {ready && loadError === null && (
         <ProjectTabs
           projects={backlog.projects}
           activeId={project.id}
@@ -109,13 +162,32 @@ export function App({ storage }: Props) {
         />
       )}
 
-      {saveFailed && loadError === null && (
-        <div role="alert" className={styles.warning}>
-          <span>
-            ブラウザに保存できませんでした。この画面を閉じると変更が失われるため、エクスポートしてファイルに退避してください。
+      {ready && legacy && (
+        <div className={styles.warning} data-testid="legacy-backlog">
+          <span>このブラウザに以前のデータ（{describeBacklog(legacy)}）が残っています。</span>
+          <span className={styles.bannerActions}>
+            <button
+              type="button"
+              className={styles.textButton}
+              onClick={() => setPendingImport({ backlog: legacy, source: 'このブラウザの以前のデータ', legacy: true })}
+            >
+              共有データに取り込む
+            </button>
+            <button type="button" className={styles.textButton} onClick={() => downloadBacklog(legacy)}>
+              ファイルに書き出す
+            </button>
+            <button type="button" className={styles.textButton} onClick={() => setConfirmingRemoveLegacy(true)}>
+              このブラウザから消す
+            </button>
           </span>
-          <button type="button" className={styles.secondary} onClick={() => downloadBacklog(backlog)}>
-            エクスポート
+        </div>
+      )}
+
+      {saveFailed && (
+        <div role="alert" className={styles.warning}>
+          <span>変更を保存できませんでした。接続を確認して、もう一度操作してください。</span>
+          <button type="button" className={styles.textButton} onClick={dismissSaveFailed}>
+            閉じる
           </button>
         </div>
       )}
@@ -129,12 +201,12 @@ export function App({ storage }: Props) {
         </div>
       )}
 
-      {loadError !== null ? (
+      {!ready ? null : loadError !== null ? (
         <main className={styles.loadError}>
-          <h1 className={styles.heading}>保存データを読み込めませんでした</h1>
+          <h1 className={styles.heading}>共有データを読み込めませんでした</h1>
           <p className={styles.reason}>{loadError}</p>
           <p>
-            保存データはまだ上書きしていません。エクスポートしたファイルがあればインポートして復元できます。空のバックログで始めると、保存データは上書きされます。
+            共有データはまだ上書きしていません。エクスポートしたファイルがあればインポートして復元できます。空のバックログで始めると、共有データは上書きされます。
           </p>
           <div className={styles.loadErrorActions}>
             <button type="button" className={styles.primary} onClick={openImport}>
@@ -245,16 +317,28 @@ export function App({ storage }: Props) {
           title="バックログを置き換えますか？"
           confirmLabel="置き換える"
           danger
-          onConfirm={() => {
-            replace(pendingImport.backlog);
-            setPendingImport(null);
-            switchProject(pendingImport.backlog.projects[0].id);
-          }}
+          onConfirm={() => void confirmImport(pendingImport)}
           onCancel={() => setPendingImport(null)}
         >
           <p>
-            {loadError === null ? `現在のデータ（${describeBacklog(backlog)}）を、` : '保存データを、'}
-            「{pendingImport.fileName}」の内容（{describeBacklog(pendingImport.backlog)}）で置き換えます。
+            {loadError === null ? `現在の共有データ（${describeBacklog(backlog)}）を、` : '共有データを、'}
+            {pendingImport.source}（{describeBacklog(pendingImport.backlog)}）で置き換えます。
+          </p>
+          <p>他の人の画面の内容も置き換わります。</p>
+        </ConfirmDialog>
+      )}
+
+      {confirmingRemoveLegacy && legacy && (
+        <ConfirmDialog
+          title="以前のデータを消しますか？"
+          confirmLabel="消す"
+          danger
+          onConfirm={removeLegacy}
+          onCancel={() => setConfirmingRemoveLegacy(false)}
+        >
+          <p>
+            このブラウザに残っている以前のデータ（{describeBacklog(legacy)}
+            ）を消します。共有データは変わりません。元に戻せないため、必要ならファイルに書き出してから消してください。
           </p>
         </ConfirmDialog>
       )}
@@ -280,11 +364,11 @@ export function App({ storage }: Props) {
           danger
           onConfirm={() => {
             setConfirmingStartEmpty(false);
-            startEmpty();
+            void startEmpty();
           }}
           onCancel={() => setConfirmingStartEmpty(false)}
         >
-          <p>読み込めなかった保存データは上書きされ、元に戻せません。</p>
+          <p>読み込めなかった共有データは上書きされ、元に戻せません。他の人の画面も空のバックログになります。</p>
         </ConfirmDialog>
       )}
     </div>

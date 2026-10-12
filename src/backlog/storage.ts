@@ -1,7 +1,11 @@
 import type { Backlog } from './model';
 import { parseBacklogJson } from './validate';
 
-export const STORAGE_KEY = 'jisaku-jira:backlog';
+/**
+ * 共有データに移る前の版が、このブラウザに保存していたバックログのキー。
+ * 今は読み出しと削除だけを行い、書き込まない（取り込みや書き出しのために残っていることを知らせる）。
+ */
+export const LEGACY_STORAGE_KEY = 'jisaku-jira:backlog';
 
 export type LoadResult =
   | { kind: 'empty' }
@@ -17,11 +21,12 @@ export function getStorage(): Storage | null {
   }
 }
 
-export function loadBacklog(storage: Storage | null): LoadResult {
+/** このブラウザに残った以前のデータ。version 1 は version 2 に変換して返す */
+export function loadLegacyBacklog(storage: Storage | null): LoadResult {
   if (storage === null) return { kind: 'empty' };
   let text: string | null;
   try {
-    text = storage.getItem(STORAGE_KEY);
+    text = storage.getItem(LEGACY_STORAGE_KEY);
   } catch {
     return { kind: 'empty' };
   }
@@ -30,14 +35,12 @@ export function loadBacklog(storage: Storage | null): LoadResult {
   return result.ok ? { kind: 'loaded', backlog: result.backlog } : { kind: 'error', reason: result.reason };
 }
 
-/** 保存できたら true。ストレージが使えない、容量超過などで失敗したら false */
-export function saveBacklog(storage: Storage | null, backlog: Backlog): boolean {
-  if (storage === null) return false;
+/** 以前のデータを消す。失敗は無視する（次に開いたときにまた知らせるだけ） */
+export function removeLegacyBacklog(storage: Storage | null): void {
   try {
-    storage.setItem(STORAGE_KEY, serializeBacklog(backlog));
-    return true;
+    storage?.removeItem(LEGACY_STORAGE_KEY);
   } catch {
-    return false;
+    // 無視する
   }
 }
 

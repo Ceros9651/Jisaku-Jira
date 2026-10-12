@@ -27,7 +27,7 @@
 
 ### 共有データは Firestore のドキュメント1件に JSON 文字列で置く
 
-- パス: `backlogs/shared`。フィールド: `json`（`serializeBacklog` の出力）、`updatedAt`（サーバー時刻）。
+- パス: `backlogs/shared`。フィールド: `json`（`serializeBacklog` の出力）、`ops`（直近に反映した操作の id、最大 50 件）、`updatedAt`（サーバー時刻）。
 - 1件にまとめる理由: 今の `Backlog` 型・reducer・検証・エクスポートをそのまま使え、PBI の番号の採番もトランザクション1回で一意にできる。個人〜少人数のバックログならサイズは 1MiB の上限に十分収まる。
 - JSON 文字列にする理由: Firestore のマップ・配列に変換すると、読み込み時の検証が二重になる（Firestore の型と `Backlog` の型）。文字列なら保存データ・エクスポートファイルと同じ `parseBacklogJson` で検証でき、壊れたデータの扱いもそのまま使える。
 - 採らなかった案:
@@ -37,12 +37,12 @@
 ### 操作はトランザクションで「最新の内容に reducer を適用」する
 
 ```text
-apply(action):
+apply(action, opId):
   runTransaction:
-    current = parse(get(backlogs/shared))  // 無ければ emptyBacklog()、読めなければ中止
+    current = parse(get(backlogs/shared))  // 無ければ emptyBacklog()、読めなければ中止（replace は読まずに置き換える）
     next    = backlogReducer(current, action)
-    if next === current: 何もしない
-    set(backlogs/shared, { json: serialize(next), updatedAt: serverTimestamp() })
+    if next === current: 何もしない（false を返す）
+    set(backlogs/shared, { json: serialize(next), ops: [...ops, opId].slice(-50), updatedAt: serverTimestamp() })
 ```
 
 - 同時に操作しても、各操作は最新の内容に適用されるため、別々の PBI への変更は両方残り、`create` の番号も重複しない（Firestore がトランザクションを再試行する）。
@@ -59,24 +59,26 @@ useBacklog は次の2つを持つ。
 
 表示する `backlog` は `pending.reduce(backlogReducer, server)`。
 
-- 操作すると `pending` に足して即表示し、トランザクションを始める。成功したら列から外す（そのころには `onSnapshot` で結果が届いている）。失敗したら列から外して `saveFailed` を立てる。表示は `server` に戻る。
+- 操作すると、id を付けて `pending` に足して即表示し、トランザクションを始める。失敗したら列から外して `saveFailed` を立てる。表示は `server` に戻る。
+- 成功した操作を外すのは、その id が受信した `ops` に入っていたとき（その操作を含む内容を受け取った）。トランザクションの完了と、結果を含む `onSnapshot` の到着はどちらが先か決まっていないため、完了の時点で外すと一瞬元に戻って見え、受信の時点で外さないと `create` が二重に見える。書き込まなかった操作（内容が変わらない）は完了の時点で外す。
+- 実装中に追加した決定。当初は「成功したら外す」としていたが、上の順序の問題で `ops` を足した。
 - 他の端末の変更で `server` が変わっても、未確定の自分の操作は上に重ねて表示され続けるので、ちらつかない。
 - `createProject` の直後に切り替える先は、今までどおり表示中の `backlog.nextProjectId`。同時に別の端末がプロジェクトを作った場合はずれうる（Risks 参照）。
 - 自分の書き込みも `onSnapshot` で届くので、`server` を更新する経路は1つだけにする（トランザクションの戻り値では更新しない）。
 
 ### Firestore の窓口 `BacklogRemote`
 
-src/backlog/remote.ts にインターフェースと Firestore 実装を置く。
+src/backlog/remote.ts にインターフェースと、Firestore 実装とテストの偽物が共用する「最新の内容に適用する」関数 `nextBacklog` を置く。Firestore 実装は src/backlog/firebase.ts に置く。
 
 ```ts
-type RemoteSnapshot = { kind: 'missing' } | { kind: 'text'; text: string };
+type RemoteSnapshot = { kind: 'missing' } | { kind: 'text'; text: string; ops: string[] };
 interface BacklogRemote {
   subscribe(onData: (s: RemoteSnapshot) => void, onError: (message: string) => void): () => void;
-  apply(action: BacklogAction): Promise<void>;  // 読めないデータなら reject
+  apply(action: BacklogAction, opId: string): Promise<boolean>;  // 書き込んだら true。読めないデータなら reject
 }
 ```
 
-- `useBacklog(remote, storage)` で受け取る。App は `remote` を props で受け取り、main.tsx で Firestore 実装を渡す。テストは src/test/ のメモリ実装（`subscribe` の相手に変更を配る、失敗を注入できる）を渡す。
+- `useBacklog(remote)` で受け取る。App は `remote` を props で受け取り、main.tsx で Firestore 実装を渡す。テストは src/test/ のメモリ実装（`subscribe` の相手に変更を配る、失敗を注入できる）を渡す。
 - 検証は useBacklog 側で `parseBacklogJson` に通す。読めなければ `loadError` にして、その間は `startEmpty` / インポート以外の操作をさせない（今と同じ）。トランザクション側でも同じ検証を行い、読めないデータの上には書かない。
 - src/backlog/firebase.ts は `import.meta.env.VITE_FIREBASE_*`（apiKey, authDomain, projectId, appId）から設定を作る。足りなければ Firestore 実装の代わりに、`subscribe` が即「接続先が設定されていません」を返す実装を使う。
 - Firestore はメモリキャッシュ（既定）で使う。オフラインでの読み込みはしない。
@@ -108,9 +110,12 @@ useBacklog は `status: 'loading' | 'ready' | 'error'` を返す。
 match /databases/{db}/documents {
   match /backlogs/shared {
     allow read: if true;
-    allow create, update: if request.resource.data.keys().hasOnly(['json', 'updatedAt'])
+    allow create, update: if request.resource.data.keys().hasOnly(['json', 'ops', 'updatedAt'])
                           && request.resource.data.json is string
-                          && request.resource.data.json.size() < 900000;
+                          && request.resource.data.json.size() < 900000
+                          && request.resource.data.ops is list
+                          && request.resource.data.ops.size() <= 50
+                          && request.resource.data.updatedAt == request.time;
   }
 }
 ```
@@ -131,6 +136,7 @@ docs/design-principles.md に従い、読み込み中・接続エラー・以前
 
 - [URL を知っている人なら誰でも全データを消せる] → ユーザーが受け入れた。ルールで対象を1件に限り、削除操作は許さない。README で定期的なエクスポートを勧める。必要になったら Authentication と許可リストを足す（別 change）。
 - [API キーがビルドに含まれ、他のアプリからも同じ共有データを書ける] → Web の Firebase 設定は秘密ではない。上と同じ扱い。App Check は今回入れない。
+- [受信の間に全端末で 50 回を超える操作があると、自分の操作の id が `ops` から押し出され、`pending` に残って二重に適用して見える] → 人の操作の頻度では起きない。起きても表示だけで、共有データは正しい。再読み込みで直る。
 - [1件のドキュメントへの書き込みは持続で毎秒1回程度が目安] → 人の操作の頻度なら届かない。並べ替えはドロップ時に1回、詳細の編集は保存時に1回だけ書く。
 - [共有データが大きくなると 1MiB に近づく] → ルールで 900KB 未満に限り、超えると保存失敗として表示される。目安として数千件の PBI まで入る。
 - [`createProject` 直後に別端末も作ると、切り替え先が相手のプロジェクトになる] → まれで、データは失われない。必要なら action に一時 id を持たせる形に変える。
