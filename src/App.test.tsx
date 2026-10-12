@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from './App';
 import type { Backlog, Pbi } from './backlog/model';
@@ -116,6 +116,14 @@ describe('詳細パネル', () => {
     expect(within(screen.getByRole('complementary')).getByRole('heading', { name: 'PBI-3' })).toBeInTheDocument();
   });
 
+  test('無い PBI のハッシュで開くと一覧だけを表示する', () => {
+    seed([pbi(1, 'a'), pbi(3, 'c')]);
+    window.history.replaceState(null, '', '/#PBI-9');
+    render(<App />);
+    expect(rowTexts()).toEqual(['PBI-1', 'PBI-3']);
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  });
+
   test('タイトル・説明・SP を編集して保存すると、ID と位置は変わらない', async () => {
     const user = userEvent.setup();
     seed([pbi(1, 'a'), pbi(2, 'b'), pbi(3, 'c')]);
@@ -170,6 +178,65 @@ describe('詳細パネル', () => {
     render(<App />);
     await user.selectOptions(within(screen.getByRole('complementary')).getByLabelText('ステータス'), 'done');
     expect(screen.getByRole('combobox', { name: 'PBI-1 のステータス' })).toHaveValue('done');
+  });
+});
+
+describe('コピー', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  test('行のコピーで PBI のリンクと内容の Markdown をクリップボードに入れ、詳細パネルは開かない', async () => {
+    const user = userEvent.setup();
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+    seed([pbi(1, 'a'), { ...pbi(3, 'ログイン画面を作る', 5), status: 'in_progress', description: '説明です' }]);
+    window.history.replaceState(null, '', '/Jisaku-Jira/?reload=1');
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'PBI-3 をコピー' }));
+    expect(writeText).toHaveBeenCalledWith(
+      [
+        '## PBI-3 ログイン画面を作る',
+        '',
+        `- リンク: ${window.location.origin}/Jisaku-Jira/#PBI-3`,
+        '- ステータス: In Progress',
+        '- ストーリーポイント: 5',
+        '',
+        '### 説明',
+        '',
+        '説明です',
+        '',
+      ].join('\n'),
+    );
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+    expect(window.location.hash).toBe('');
+  });
+
+  test('成功すると「コピー済み」にして読み上げ、2 秒後に「コピー」に戻す', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+    seed([pbi(1, 'a'), pbi(3, 'c')]);
+    render(<App />);
+    const button = screen.getByRole('button', { name: 'PBI-3 をコピー' });
+    await user.click(button);
+    expect(button).toHaveTextContent('コピー済み');
+    expect(screen.getByText('PBI-3 をコピーしました')).toHaveAttribute('role', 'status');
+    expect(screen.getByRole('button', { name: 'PBI-1 をコピー' })).toHaveTextContent(/^コピー$/);
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(button).toHaveTextContent(/^コピー$/);
+  });
+
+  test('クリップボードに書き込めないと「コピー失敗」にし、バックログは変えない', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'));
+    seed([pbi(1, 'a'), pbi(3, 'c')]);
+    render(<App />);
+    const before = stored();
+    await user.click(screen.getByRole('button', { name: 'PBI-3 をコピー' }));
+    expect(screen.getByRole('button', { name: 'PBI-3 をコピー' })).toHaveTextContent('コピー失敗');
+    expect(screen.getByText('PBI-3 をコピーできませんでした')).toHaveAttribute('role', 'status');
+    expect(stored()).toEqual(before);
   });
 });
 

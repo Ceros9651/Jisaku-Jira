@@ -64,6 +64,31 @@
   font-variant-numeric: tabular-nums;
 }
 
+.copyCol {
+  width: 70px;
+  text-align: right !important;
+}
+
+.copy {
+  /* 一番長い「コピー失敗」が収まる幅で固定し、文字が変わっても列をずらさない */
+  width: 54px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  text-align: right;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.row:hover .copy,
+.copy:focus-visible {
+  color: var(--text);
+  text-decoration: underline;
+}
+
 .handle {
   display: flex;
   align-items: center;
@@ -118,6 +143,14 @@
 
   .statusCol {
     width: 100px;
+  }
+
+  .pointsCol {
+    width: 32px;
+  }
+
+  .copyCol {
+    width: 62px;
   }
 
   .statusCol select {
