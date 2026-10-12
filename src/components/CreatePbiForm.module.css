@@ -3,41 +3,67 @@
   position: sticky;
   top: 0;
   z-index: 2;
-  padding: var(--space-2) 0 var(--space-3);
+  padding-top: var(--space-1);
   background: var(--surface);
 }
 
+/* Jira のインライン作成の行に倣い、一覧の行と同じ高さの罫線の行にする */
 .row {
   display: flex;
+  align-items: center;
   gap: var(--space-2);
+  height: 38px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.row:focus-within {
+  border-bottom-color: var(--accent);
+  box-shadow: inset 0 -1px 0 var(--accent);
+}
+
+.row:has(.input[aria-invalid='true']) {
+  border-bottom-color: var(--danger);
+  box-shadow: inset 0 -1px 0 var(--danger);
+}
+
+.plus {
+  width: 20px;
+  color: var(--text-muted);
+  font-size: var(--text-lg);
+  line-height: 1;
+  text-align: center;
 }
 
 .input {
   flex: 1;
-  height: 32px;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-control);
-  background: var(--surface);
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
-.input[aria-invalid='true'] {
-  border-color: var(--danger);
+.input:focus-visible {
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
 }
 
 .button {
-  height: 32px;
-  padding: 0 var(--space-4);
-  border: 1px solid var(--accent);
+  height: 26px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
-  background: var(--accent);
-  color: var(--gray-0);
-  font-weight: 600;
+  background: var(--surface);
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 
 .button:hover {
-  background: var(--accent-hover);
+  background: var(--gray-100);
 }
 
 .error {

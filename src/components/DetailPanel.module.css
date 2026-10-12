@@ -16,7 +16,7 @@
 
 .id {
   margin: 0;
-  color: var(--text-muted);
+  color: var(--gray-700);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   font-weight: 400;
@@ -60,7 +60,6 @@
   font-weight: 600;
 }
 
-.titleInput,
 .pointsInput,
 .description {
   padding: var(--space-1) var(--space-2);
@@ -69,23 +68,49 @@
   background: var(--surface);
 }
 
+/* 普段は枠の無い見出しに見せ、hover で薄い背景、focus で入力欄の枠を出す */
 .titleInput {
+  margin: 0 calc(-1 * var(--space-2));
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
   font-size: var(--text-lg);
-  font-weight: 600;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.titleInput:hover {
+  background: var(--surface-sunken);
+}
+
+.titleInput:focus {
+  border-color: var(--border-strong);
+  background: var(--surface);
 }
 
 [aria-invalid='true'] {
   border-color: var(--danger);
 }
 
+/* ステータスと SP は、ラベル左・値右の行で並べる */
 .meta {
   display: flex;
-  gap: var(--space-5);
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
-.meta select {
-  align-self: flex-start;
-  border-color: var(--border-strong);
+.meta .field {
+  display: grid;
+  grid-template-columns: 96px auto;
+  align-items: center;
+  justify-items: start;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+}
+
+.meta .error {
+  grid-column: 2;
 }
 
 .pointsInput {

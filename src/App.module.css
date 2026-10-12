@@ -32,7 +32,7 @@
 }
 
 .main {
-  grid-template-columns: minmax(0, 960px);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .withPanel {
@@ -60,11 +60,53 @@
 
 .summary {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-2);
   margin: 0;
-  color: var(--text-muted);
+  color: var(--gray-700);
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
+}
+
+/* 区切りは CSS で付け、テキストとしては「12 件45 pt」のまま扱う */
+.summary span + span::before {
+  content: '·';
+  margin-right: var(--space-2);
+  color: var(--text-muted);
+}
+
+/* ステータス別の SP。色はステータスの Lozenge と揃える */
+.statusPoints {
+  display: flex;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.statusPoints li {
+  min-width: 22px;
+  padding: 0 6px;
+  border-radius: var(--radius-control);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.todo {
+  background: var(--status-todo-bg);
+  color: var(--status-todo);
+}
+
+.in_progress {
+  background: var(--status-progress-bg);
+  color: var(--status-progress);
+}
+
+.done {
+  background: var(--status-done-bg);
+  color: var(--status-done);
 }
 
 .empty {

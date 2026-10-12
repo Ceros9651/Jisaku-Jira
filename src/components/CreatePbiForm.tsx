@@ -27,6 +27,9 @@ export function CreatePbiForm({ onCreate }: Props) {
       }}
     >
       <div className={styles.row}>
+        <span className={styles.plus} aria-hidden="true">
+          +
+        </span>
         <input
           className={styles.input}
           value={title}

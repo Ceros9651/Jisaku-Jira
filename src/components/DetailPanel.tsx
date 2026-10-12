@@ -76,7 +76,8 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
         onChange={() => setSaved(false)}
       >
         <label className={styles.field}>
-          <span className={styles.label}>タイトル</span>
+          {/* Jira の詳細表示に倣い、タイトルは見出しとして見せる。ラベルは読み上げ用にだけ残す */}
+          <span className="visually-hidden">タイトル</span>
           <input
             className={styles.titleInput}
             value={title}

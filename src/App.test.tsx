@@ -44,6 +44,19 @@ describe('一覧', () => {
     expect(screen.getByTestId('backlog-summary')).toHaveTextContent('3 件8 pt');
   });
 
+  test('見出しにステータス別の SP を出す', () => {
+    seed([
+      { ...pbi(1, 'a', 3), status: 'done' },
+      { ...pbi(2, 'b', 5), status: 'in_progress' },
+      pbi(3, 'c', 2),
+      pbi(4, 'd'),
+    ]);
+    render(<App />);
+    expect(screen.getByTestId('backlog-summary')).toHaveTextContent('4 件10 pt');
+    const items = within(screen.getByRole('list', { name: 'ステータス別の SP' })).getAllByRole('listitem');
+    expect(items.map((li) => li.textContent)).toEqual(['To Do 2', 'In Progress 5', 'Done 3']);
+  });
+
   test('PBI がないときは空状態と作成の操作を表示する', () => {
     render(<App />);
     expect(screen.getByText(/PBI はまだありません/)).toBeInTheDocument();

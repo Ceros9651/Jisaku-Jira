@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { Backlog } from './backlog/model';
+import { type Backlog, STATUSES, STATUS_LABELS } from './backlog/model';
 import { readBacklogFile, downloadBacklog } from './backlog/transfer';
 import { useBacklog } from './backlog/useBacklog';
 import styles from './App.module.css';
@@ -25,6 +25,10 @@ export function App({ storage }: Props) {
 
   const selectedPbi = backlog.items.find((p) => p.number === selected) ?? null;
   const totalPoints = backlog.items.reduce((sum, p) => sum + (p.storyPoints ?? 0), 0);
+  const pointsByStatus = STATUSES.map((status) => ({
+    status,
+    points: backlog.items.filter((p) => p.status === status).reduce((sum, p) => sum + (p.storyPoints ?? 0), 0),
+  }));
 
   async function handleFile(file: File) {
     const result = await readBacklogFile(file);
@@ -111,6 +115,14 @@ export function App({ storage }: Props) {
                 <span>{backlog.items.length} 件</span>
                 <span>{totalPoints} pt</span>
               </p>
+              <ul className={styles.statusPoints} aria-label="ステータス別の SP">
+                {pointsByStatus.map(({ status, points }) => (
+                  <li key={status} className={styles[status]} title={STATUS_LABELS[status]}>
+                    <span className="visually-hidden">{STATUS_LABELS[status]} </span>
+                    {points}
+                  </li>
+                ))}
+              </ul>
             </div>
 
             <CreatePbiForm onCreate={(title) => dispatch({ type: 'create', title, now: now() })} />

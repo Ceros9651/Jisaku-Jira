@@ -15,10 +15,13 @@
   --accent-hover: #194f9f;
   --accent-subtle: #e9f0fb;
 
-  /* ステータス表示（文字ラベルの補助） */
+  /* ステータス表示（Lozenge の文字と薄い背景。組み合わせのコントラスト比は 4.5:1 以上） */
   --status-todo: var(--gray-700);
+  --status-todo-bg: #e8e8e5;
   --status-progress: #1f5fbf;
-  --status-done: #2f7a3e;
+  --status-progress-bg: #dbe7f9;
+  --status-done: #2a6e37;
+  --status-done-bg: #dcefe0;
 
   /* 警告・エラー */
   --danger: #b42318;
