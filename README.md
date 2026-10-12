@@ -2,6 +2,8 @@
 
 個人開発のスクラムで使う、プロダクトバックログ管理ツール。Jira のバックログ画面の要点だけを持つ。
 
+公開先: <https://ceros9651.github.io/Jisaku-Jira/>
+
 - PBI には追加した順に `PBI-1`, `PBI-2`, … の ID が付く。削除した番号は再利用しない（欠番になる）。
 - 一覧はドラッグ、またはキーボード（持ち手にフォーカスしてスペースで掴み、上下の矢印で移動、スペースで置く）で並べ替えられる。並べ替えても ID は変わらない。
 - PBI はステータス（To Do / In Progress / Done）とストーリーポイント（任意、0 以上の整数）を持つ。
@@ -37,4 +39,4 @@ UI を変更するときは [docs/design-principles.md](docs/design-principles.m
 
 初回だけ、リポジトリの **Settings → Pages → Build and deployment → Source** を **GitHub Actions** にする。
 
-公開先は `https://<ユーザー名>.github.io/Jisaku-Jira/`。リポジトリ名を変えたり独自ドメインを使ったりする場合は、[vite.config.ts](vite.config.ts) の `base` を合わせて変える。
+公開先は <https://ceros9651.github.io/Jisaku-Jira/>。リポジトリ名を変えたり独自ドメインを使ったりする場合は、[vite.config.ts](vite.config.ts) の `base` を合わせて変える。
