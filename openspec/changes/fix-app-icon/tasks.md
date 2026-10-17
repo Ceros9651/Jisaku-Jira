@@ -14,4 +14,4 @@
 ## 3. 公開後の確認
 
 - [x] 3.1 `npm run typecheck && npm test && npm run build` が通ることを確認し、`npm run preview` で `/Jisaku-Jira/` と `/Jisaku-Jira/#PBI-8` を開いてタブにアイコンが出ることを確認する
-- [ ] 3.2 デプロイ後、https://ceros9651.github.io/Jisaku-Jira/ の各アイコン URL が HTTP 200 を返すこと、既存のお気に入りを削除して追加し直すと新しいアイコンが表示され Yarikuri のアイコンが出ないことを確認する
+- [x] 3.2 デプロイ後、https://ceros9651.github.io/Jisaku-Jira/ の各アイコン URL が HTTP 200 を返すこと、既存のお気に入りを削除して追加し直すと新しいアイコンが表示され Yarikuri のアイコンが出ないことを確認する
