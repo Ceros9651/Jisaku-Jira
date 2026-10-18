@@ -57,6 +57,8 @@ npm run preview    # ビルド結果を http://localhost:4173/Jisaku-Jira/ で�
 
 UI を変更するときは [docs/design-principles.md](docs/design-principles.md) に従う。
 
+Claude Code で作業用のブランチに実装したら、`/createPR` で今のブランチから `dev` への PR を作れる（[.claude/skills/createPR/SKILL.md](.claude/skills/createPR/SKILL.md)）。コミット・push・PR の作成の前に、それぞれ内容を見せて確認を取る。前提として `gh auth login` を済ませておく。
+
 ## GitHub Pages への公開
 
 `dev` に push すると、GitHub Actions（[.github/workflows/deploy.yml](.github/workflows/deploy.yml)）が型チェック・テスト・ビルドを行い、GitHub Pages に公開する。`dev` 向けの PR では、公開せずにチェックとビルドだけを行う。
