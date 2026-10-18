@@ -61,7 +61,7 @@
 }
 
 .pointsInput,
-.description {
+.longText {
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
@@ -119,7 +119,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.description {
+/* 説明と受入条件の複数行の欄 */
+.longText {
   resize: vertical;
   line-height: 1.6;
 }
