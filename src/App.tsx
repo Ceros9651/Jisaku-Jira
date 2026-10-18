@@ -1,5 +1,14 @@
 import { useRef, useState } from 'react';
-import { type Backlog, type Pbi, type Status, STATUSES, STATUS_LABELS, countItems, findPbi } from './backlog/model';
+import {
+  type Backlog,
+  type Pbi,
+  type Status,
+  STATUSES,
+  STATUS_LABELS,
+  countItems,
+  findPbi,
+  resolveRef,
+} from './backlog/model';
 import type { BacklogRemote } from './backlog/remote';
 import { getStorage, loadLegacyBacklog, removeLegacyBacklog } from './backlog/storage';
 import { readBacklogFile, downloadBacklog } from './backlog/transfer';
@@ -53,7 +62,9 @@ export function App({ remote, storage: storageProp }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const items = project.items;
-  const selectedPbi = selected === null ? null : (findPbi(backlog, selected)?.pbi ?? null);
+  // 開いている PBI のプロジェクトは、useActiveProject が選ぶ project と同じになる
+  const selectedPbi = selected === null ? null : (findPbi(backlog, resolveRef(backlog, selected))?.pbi ?? null);
+  const selectedRef = selectedPbi && { projectId: project.id, number: selectedPbi.number };
   // 並び順は items のまま、未完了と Done に分けて表示する
   const activeItems = items.filter((p) => p.status !== 'done');
   const doneItems = items.filter((p) => p.status === 'done');
@@ -65,7 +76,11 @@ export function App({ remote, storage: storageProp }: Props) {
   }));
 
   function changeStatus(number: number, status: Status) {
-    dispatch({ type: 'update', number, changes: { status }, now: now() });
+    dispatch({ type: 'update', projectId: project.id, number, changes: { status }, now: now() });
+  }
+
+  function selectPbi(number: number) {
+    select({ projectId: project.id, number });
   }
 
   /** タブの切り替え。開いていた詳細パネルと名前の変更は閉じる */
@@ -299,15 +314,16 @@ export function App({ remote, storage: storageProp }: Props) {
                   <p className={styles.empty}>未完了の PBI はありません。</p>
                 ) : (
                   <BacklogTable
+                    projectId={project.id}
                     items={activeItems}
                     label="未完了の PBI"
                     selected={selectedPbi?.number ?? null}
-                    onSelect={select}
+                    onSelect={selectPbi}
                     onStatusChange={changeStatus}
                     onMove={(number, overNumber) => {
                       // 表の中の位置ではなく、Done も含めたバックログ全体の位置に置き換える
                       const toIndex = items.findIndex((p) => p.number === overNumber);
-                      if (toIndex !== -1) dispatch({ type: 'move', number, toIndex });
+                      if (toIndex !== -1) dispatch({ type: 'move', projectId: project.id, number, toIndex });
                     }}
                   />
                 )}
@@ -323,11 +339,12 @@ export function App({ remote, storage: storageProp }: Props) {
                       </p>
                     </div>
                     <BacklogTable
+                      projectId={project.id}
                       items={doneItems}
                       sortable={false}
                       labelledBy="done-heading"
                       selected={selectedPbi?.number ?? null}
-                      onSelect={select}
+                      onSelect={selectPbi}
                       onStatusChange={changeStatus}
                     />
                   </section>
@@ -336,16 +353,14 @@ export function App({ remote, storage: storageProp }: Props) {
             )}
           </section>
 
-          {selectedPbi && (
+          {selectedPbi && selectedRef && (
             <DetailPanel
-              key={selectedPbi.number}
+              key={`${selectedRef.projectId}/${selectedRef.number}`}
               pbi={selectedPbi}
-              onSave={(changes) => dispatch({ type: 'update', number: selectedPbi.number, changes, now: now() })}
-              onStatusChange={(status) =>
-                dispatch({ type: 'update', number: selectedPbi.number, changes: { status }, now: now() })
-              }
+              onSave={(changes) => dispatch({ type: 'update', ...selectedRef, changes, now: now() })}
+              onStatusChange={(status) => dispatch({ type: 'update', ...selectedRef, changes: { status }, now: now() })}
               onDelete={() => {
-                dispatch({ type: 'delete', number: selectedPbi.number });
+                dispatch({ type: 'delete', ...selectedRef });
                 select(null);
               }}
               onClose={() => select(null)}

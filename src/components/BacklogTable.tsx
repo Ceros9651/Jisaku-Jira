@@ -24,6 +24,8 @@ import styles from './BacklogTable.module.css';
 import { StatusSelect } from './StatusSelect';
 
 type Props = {
+  /** items が属するプロジェクト。コピーするリンクに使う */
+  projectId: number;
   items: Pbi[];
   selected: number | null;
   onSelect: (number: number) => void;
@@ -38,6 +40,7 @@ type Props = {
 };
 
 export function BacklogTable({
+  projectId,
   items,
   selected,
   onSelect,
@@ -71,6 +74,7 @@ export function BacklogTable({
           {items.map((pbi) => (
             <Row
               key={pbi.number}
+              projectId={projectId}
               pbi={pbi}
               selected={pbi.number === selected}
               onSelect={onSelect}
@@ -143,6 +147,7 @@ function SortableList({ items, onMove, children }: SortableListProps) {
 }
 
 type RowProps = {
+  projectId: number;
   pbi: Pbi;
   selected: boolean;
   onSelect: (number: number) => void;
@@ -210,6 +215,7 @@ type RowCellsProps = RowProps & {
 };
 
 function RowCells({
+  projectId,
   pbi,
   selected,
   onSelect,
@@ -230,7 +236,7 @@ function RowCells({
     let ok = false;
     try {
       if (navigator.clipboard) {
-        await navigator.clipboard.writeText(formatPbiMarkdown(pbi, pbiUrl(pbi.number, window.location)));
+        await navigator.clipboard.writeText(formatPbiMarkdown(pbi, pbiUrl({ projectId, number: pbi.number }, window.location)));
         ok = true;
       }
     } catch {

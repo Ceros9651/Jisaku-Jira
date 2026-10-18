@@ -1,6 +1,7 @@
 import {
   type Backlog,
   type Pbi,
+  type PbiRef,
   type Project,
   type Status,
   isStatus,
@@ -19,9 +20,9 @@ export type BacklogAction =
       storyPoints?: number | null;
       now: string;
     }
-  | { type: 'update'; number: number; changes: PbiChanges; now: string }
-  | { type: 'delete'; number: number }
-  | { type: 'move'; number: number; toIndex: number }
+  | { type: 'update'; projectId: number; number: number; changes: PbiChanges; now: string }
+  | { type: 'delete'; projectId: number; number: number }
+  | { type: 'move'; projectId: number; number: number; toIndex: number }
   | { type: 'createProject'; name: string }
   | { type: 'renameProject'; id: number; name: string }
   | { type: 'deleteProject'; id: number }
@@ -30,7 +31,7 @@ export type BacklogAction =
 /**
  * 不正な操作（空タイトル・空の名前、不正なストーリーポイント、存在しない番号や id、最後のプロジェクトの削除）は
  * 無視して元の状態を返す。利用者へのエラー表示は呼び出し側で model の検証関数を使って行う。
- * PBI の番号は全プロジェクトで一意なので、PBI の操作は番号だけで指す。
+ * PBI の番号はプロジェクトごとの連番なので、PBI の操作はプロジェクトの id と番号で指す。
  */
 export function backlogReducer(state: Backlog, action: BacklogAction): Backlog {
   switch (action.type) {
@@ -38,9 +39,10 @@ export function backlogReducer(state: Backlog, action: BacklogAction): Backlog {
       const title = normalizeTitle(action.title);
       const storyPoints = action.storyPoints ?? null;
       if (title === null || !isValidStoryPoints(storyPoints)) return state;
-      if (!state.projects.some((p) => p.id === action.projectId)) return state;
+      const project = state.projects.find((p) => p.id === action.projectId);
+      if (!project) return state;
       const pbi: Pbi = {
-        number: state.nextNumber,
+        number: project.nextNumber,
         title,
         description: action.description ?? '',
         acceptanceCriteria: '',
@@ -51,13 +53,14 @@ export function backlogReducer(state: Backlog, action: BacklogAction): Backlog {
       };
       return {
         ...state,
-        nextNumber: state.nextNumber + 1,
-        projects: state.projects.map((p) => (p.id === action.projectId ? { ...p, items: [...p.items, pbi] } : p)),
+        projects: state.projects.map((p) =>
+          p.id === project.id ? { ...p, nextNumber: p.nextNumber + 1, items: [...p.items, pbi] } : p,
+        ),
       };
     }
 
     case 'update':
-      return updateItems(state, action.number, (items) => {
+      return updateItems(state, action, (items) => {
         const index = items.findIndex((p) => p.number === action.number);
         const next = applyChanges(items[index], action.changes, action.now);
         if (next === null) return null;
@@ -67,10 +70,10 @@ export function backlogReducer(state: Backlog, action: BacklogAction): Backlog {
       });
 
     case 'delete':
-      return updateItems(state, action.number, (items) => items.filter((p) => p.number !== action.number));
+      return updateItems(state, action, (items) => items.filter((p) => p.number !== action.number));
 
     case 'move':
-      return updateItems(state, action.number, (items) => {
+      return updateItems(state, action, (items) => {
         const from = items.findIndex((p) => p.number === action.number);
         const to = Math.max(0, Math.min(action.toIndex, items.length - 1));
         if (from === to) return null;
@@ -83,7 +86,7 @@ export function backlogReducer(state: Backlog, action: BacklogAction): Backlog {
     case 'createProject': {
       const name = normalizeTitle(action.name);
       if (name === null) return state;
-      const project: Project = { id: state.nextProjectId, name, items: [] };
+      const project: Project = { id: state.nextProjectId, name, nextNumber: 1, items: [] };
       return { ...state, nextProjectId: state.nextProjectId + 1, projects: [...state.projects, project] };
     }
 
@@ -105,10 +108,10 @@ export function backlogReducer(state: Backlog, action: BacklogAction): Backlog {
   }
 }
 
-/** 番号の PBI を持つプロジェクトの items だけを差し替える。見つからない、または update が null なら元の状態 */
-function updateItems(state: Backlog, number: number, update: (items: Pbi[]) => Pbi[] | null): Backlog {
-  const index = state.projects.findIndex((p) => p.items.some((pbi) => pbi.number === number));
-  if (index === -1) return state;
+/** 指した PBI を持つプロジェクトの items だけを差し替える。見つからない、または update が null なら元の状態 */
+function updateItems(state: Backlog, ref: PbiRef, update: (items: Pbi[]) => Pbi[] | null): Backlog {
+  const index = state.projects.findIndex((p) => p.id === ref.projectId);
+  if (index === -1 || !state.projects[index].items.some((pbi) => pbi.number === ref.number)) return state;
   const items = update(state.projects[index].items);
   if (items === null) return state;
   const projects = [...state.projects];

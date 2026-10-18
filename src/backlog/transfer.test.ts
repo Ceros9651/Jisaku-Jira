@@ -20,14 +20,13 @@ test('エクスポートした内容を読み込むと、全プロジェクト�
   expect(await readBacklogFile(file(serializeBacklog(backlog)))).toEqual({ ok: true, backlog });
 });
 
-test('インポート後の採番はファイルの nextNumber から続く', async () => {
+test('インポート後の採番は、プロジェクトごとにファイルの nextNumber から続く', async () => {
   const data = {
-    version: 2,
-    nextNumber: 6,
+    version: 3,
     nextProjectId: 3,
     projects: [
-      { id: 1, name: 'Web', items: [pbi(1)] },
-      { id: 2, name: 'Tool', items: [pbi(5)] },
+      { id: 1, name: 'Web', nextNumber: 3, items: [pbi(1)] },
+      { id: 2, name: 'Tool', nextNumber: 3, items: [pbi(1), pbi(2)] },
     ],
   };
   const result = await readBacklogFile(file(JSON.stringify(data)));
@@ -38,17 +37,43 @@ test('インポート後の採番はファイルの nextNumber から続く', as
   await act(async () => {
     await store.current.replace(result.backlog);
   });
-  act(() => store.current.dispatch({ type: 'create', projectId: 1, title: 'new', now }));
+  act(() => store.current.dispatch({ type: 'create', projectId: 1, title: 'web', now }));
+  act(() => store.current.dispatch({ type: 'create', projectId: 2, title: 'tool', now }));
   const [web, tool] = store.current.backlog.projects;
-  expect(web.items.map((p) => formatPbiId(p.number))).toEqual(['PBI-1', 'PBI-6']);
-  expect(tool.items.map((p) => formatPbiId(p.number))).toEqual(['PBI-5']);
+  expect(web.items.map((p) => formatPbiId(p.number))).toEqual(['PBI-1', 'PBI-3']);
+  expect(tool.items.map((p) => formatPbiId(p.number))).toEqual(['PBI-1', 'PBI-2', 'PBI-3']);
+});
+
+test('通し番号の旧形式（version 2）のファイルは、2つ目以降のプロジェクトを振り直して読み込む', async () => {
+  const at = (n: number) => `2026-10-01T00:${String(n).padStart(2, '0')}:00.000Z`;
+  const data = {
+    version: 2,
+    nextNumber: 13,
+    nextProjectId: 3,
+    projects: [
+      {
+        id: 1,
+        name: 'Jisaku-Jira-App',
+        items: [1, 2, 3, 4, 5, 6, 7, 8, 9, 11].map((n) => pbi(n, { createdAt: at(n) })),
+      },
+      { id: 2, name: 'Yarikuri', items: [pbi(10, { createdAt: at(10) }), pbi(12, { createdAt: at(12) })] },
+    ],
+  };
+  const result = await readBacklogFile(file(JSON.stringify(data)));
+  if (!result.ok) throw new Error(result.reason);
+  let backlog = backlogReducer(result.backlog, { type: 'create', projectId: 1, title: 'app', now });
+  backlog = backlogReducer(backlog, { type: 'create', projectId: 2, title: 'yarikuri', now });
+  const [app, yarikuri] = backlog.projects;
+  expect(app.items.map((p) => p.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 13]);
+  expect(yarikuri.items.map((p) => p.number)).toEqual([1, 2, 3]);
 });
 
 test('旧形式（version 1）のファイルは「マイプロジェクト」1つとして読み込む', async () => {
   const data = { version: 1, nextNumber: 6, items: [pbi(1), pbi(5)] };
   const result = await readBacklogFile(file(JSON.stringify(data)));
-  expect(result.ok && result.backlog.projects).toEqual([{ id: 1, name: 'マイプロジェクト', items: [pbi(1), pbi(5)] }]);
-  expect(result.ok && result.backlog.nextNumber).toBe(6);
+  expect(result.ok && result.backlog.projects).toEqual([
+    { id: 1, name: 'マイプロジェクト', nextNumber: 6, items: [pbi(1), pbi(5)] },
+  ]);
 });
 
 test('不正なファイルは理由を返し、現在のデータは変わらない', async () => {

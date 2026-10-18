@@ -18,14 +18,15 @@ function pbi(overrides: Partial<Pbi>): Pbi {
 }
 
 describe('pbiUrl', () => {
-  test('クエリと既存のハッシュを捨てて #PBI-<番号> を付ける', () => {
-    const location = new URL('http://localhost:5173/Jisaku-Jira/?reload=1#PBI-2');
-    expect(pbiUrl(5, location)).toBe('http://localhost:5173/Jisaku-Jira/#PBI-5');
+  test('クエリと既存のハッシュを捨てて #<プロジェクトの id>/PBI-<番号> を付ける', () => {
+    const location = new URL('http://localhost:5173/Jisaku-Jira/?reload=1#1/PBI-2');
+    expect(pbiUrl({ projectId: 2, number: 5 }, location)).toBe('http://localhost:5173/Jisaku-Jira/#2/PBI-5');
   });
 });
 
 describe('formatPbiMarkdown', () => {
   test('すべての項目がある PBI', () => {
+    const url = pbiUrl({ projectId: 1, number: 3 }, new URL('https://ceros9651.github.io/Jisaku-Jira/'));
     const markdown = formatPbiMarkdown(
       pbi({
         number: 3,
@@ -35,13 +36,13 @@ describe('formatPbiMarkdown', () => {
         description: 'メールアドレスとパスワードでログインできる。',
         acceptanceCriteria: '- 正しいメールアドレスとパスワードでログインできる\n- 誤ったパスワードではエラーが表示される',
       }),
-      'https://ceros9651.github.io/Jisaku-Jira/#PBI-3',
+      url,
     );
     expect(markdown).toBe(
       [
         '## PBI-3 ログイン画面を作る',
         '',
-        '- リンク: https://ceros9651.github.io/Jisaku-Jira/#PBI-3',
+        '- リンク: https://ceros9651.github.io/Jisaku-Jira/#1/PBI-3',
         '- ステータス: In Progress',
         '- ストーリーポイント: 5',
         '',

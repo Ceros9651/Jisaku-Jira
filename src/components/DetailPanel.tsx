@@ -23,7 +23,7 @@ type Props = {
 
 type Errors = { title?: string; storyPoints?: string };
 
-/** 呼び出し側で `key={pbi.number}` を付け、PBI を切り替えたら下書きを捨てる */
+/** 呼び出し側で `key` にプロジェクトの id と番号を付け、PBI を切り替えたら下書きを捨てる */
 export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: Props) {
   const id = formatPbiId(pbi.number);
   const [title, setTitle] = useState(pbi.title);
