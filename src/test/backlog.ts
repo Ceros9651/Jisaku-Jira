@@ -15,14 +15,17 @@ export function pbi(number: number, fields: Partial<Omit<Pbi, 'number'>> = {}): 
   };
 }
 
-/** テスト用。プロジェクト名と PBI の組から Backlog を作る。nextNumber は最大番号＋1 */
+/** テスト用。プロジェクト名と PBI の組から Backlog を作る。各プロジェクトの nextNumber はその最大番号＋1 */
 export function backlogOf(...projects: [name: string, items: Pbi[]][]): Backlog {
-  const max = Math.max(0, ...projects.flatMap(([, items]) => items.map((p) => p.number)));
   return {
-    version: 2,
-    nextNumber: max + 1,
+    version: 3,
     nextProjectId: projects.length + 1,
-    projects: projects.map(([name, items], index) => ({ id: index + 1, name, items })),
+    projects: projects.map(([name, items], index) => ({
+      id: index + 1,
+      name,
+      nextNumber: Math.max(0, ...items.map((p) => p.number)) + 1,
+      items,
+    })),
   };
 }
 

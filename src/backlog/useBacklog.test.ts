@@ -45,7 +45,7 @@ test('保存の完了が受信より後に届いても二重に表示しない',
     result.current.dispatch({ type: 'create', projectId: 1, title: 'a', now });
   });
   expect(result.current.backlog.projects[0].items).toHaveLength(1);
-  expect(result.current.backlog.nextNumber).toBe(2);
+  expect(result.current.backlog.projects[0].nextNumber).toBe(2);
 });
 
 test('保存に失敗すると表示が共有データに戻り、saveFailed が立つ', async () => {
@@ -53,7 +53,7 @@ test('保存に失敗すると表示が共有データに戻り、saveFailed が
   const { result } = renderHook(() => useBacklog(remote));
   remote.failNext();
   await act(async () => {
-    result.current.dispatch({ type: 'update', number: 1, changes: { status: 'done' }, now });
+    result.current.dispatch({ type: 'update', projectId: 1, number: 1, changes: { status: 'done' }, now });
   });
   expect(result.current.backlog.projects[0].items[0].status).toBe('todo');
   expect(result.current.saveFailed).toBe(true);
@@ -73,7 +73,7 @@ test('保存中に他の端末の変更が届いても、未確定の自分の�
   const remote = new FakeRemote(backlogOf(['マイプロジェクト', [pbi(1), pbi(2)]]));
   const { result } = renderHook(() => useBacklog(remote));
   remote.hold();
-  act(() => result.current.dispatch({ type: 'update', number: 1, changes: { title: '自分' }, now }));
+  act(() => result.current.dispatch({ type: 'update', projectId: 1, number: 1, changes: { title: '自分' }, now }));
   act(() => remote.push(backlogOf(['マイプロジェクト', [pbi(1), pbi(2, { title: '他の人' })]])));
   expect(result.current.backlog.projects[0].items.map((p) => p.title)).toEqual(['自分', '他の人']);
 
@@ -108,14 +108,30 @@ test('別々の PBI の同時の編集は両方残る', () => {
   const a = renderHook(() => useBacklog(remote));
   const b = renderHook(() => useBacklog(remote));
   remote.hold();
-  act(() => a.result.current.dispatch({ type: 'update', number: 1, changes: { title: '新しいタイトル' }, now }));
-  act(() => b.result.current.dispatch({ type: 'update', number: 2, changes: { status: 'done' }, now }));
+  act(() => a.result.current.dispatch({ type: 'update', projectId: 1, number: 1, changes: { title: '新しいタイトル' }, now }));
+  act(() => b.result.current.dispatch({ type: 'update', projectId: 1, number: 2, changes: { status: 'done' }, now }));
   act(() => remote.flush());
 
   for (const hook of [a, b]) {
     const [first, second] = hook.result.current.backlog.projects[0].items;
     expect(first.title).toBe('新しいタイトル');
     expect(second.status).toBe('done');
+  }
+});
+
+test('別々のプロジェクトの同じ番号の PBI を同時に編集すると、両方の変更が残る', () => {
+  const remote = new FakeRemote(backlogOf(['Web', [pbi(1)]], ['Tool', [pbi(1)]]));
+  const a = renderHook(() => useBacklog(remote));
+  const b = renderHook(() => useBacklog(remote));
+  remote.hold();
+  act(() => a.result.current.dispatch({ type: 'update', projectId: 1, number: 1, changes: { title: 'Web の新しいタイトル' }, now }));
+  act(() => b.result.current.dispatch({ type: 'update', projectId: 2, number: 1, changes: { status: 'done' }, now }));
+  act(() => remote.flush());
+
+  for (const hook of [a, b]) {
+    const [web, tool] = hook.result.current.backlog.projects;
+    expect(web.items[0]).toMatchObject({ title: 'Web の新しいタイトル', status: 'todo' });
+    expect(tool.items[0]).toMatchObject({ title: 'PBI 1', status: 'done' });
   }
 });
 

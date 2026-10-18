@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { type Backlog, type Project, findPbi } from './backlog/model';
+import { type Backlog, type Project, type SelectedRef, findPbi, resolveRef } from './backlog/model';
 import { getStorage, loadActiveProject, saveActiveProject } from './backlog/storage';
 
 /**
@@ -9,13 +9,13 @@ import { getStorage, loadActiveProject, saveActiveProject } from './backlog/stor
  */
 export function useActiveProject(
   backlog: Backlog,
-  selectedPbi: number | null,
+  selectedPbi: SelectedRef | null,
   persist: boolean,
   storage: Storage | null = getStorage(),
 ): [Project, (id: number) => void] {
   const [remembered, setRemembered] = useState(() => loadActiveProject(storage));
 
-  const fromHash = selectedPbi === null ? null : findPbi(backlog, selectedPbi)?.project;
+  const fromHash = selectedPbi === null ? null : findPbi(backlog, resolveRef(backlog, selectedPbi))?.project;
   const project = fromHash ?? backlog.projects.find((p) => p.id === remembered) ?? backlog.projects[0];
 
   useEffect(() => {

@@ -21,17 +21,17 @@ export type Pbi = {
 };
 
 export type Project = {
-  /** 内部の識別子。名前は変えられ、重複もありうるため */
+  /** 内部の識別子。名前は変えられ、重複もありうるため。PBI のリンクにも使う */
   id: number;
   name: string;
+  /** このプロジェクトで次に発行する PBI の番号。削除しても減らさない */
+  nextNumber: number;
   /** 配列の順序がこのプロジェクトのバックログの並び順 */
   items: Pbi[];
 };
 
 export type Backlog = {
-  version: 2;
-  /** 次に発行する PBI の番号。全プロジェクト共通で、削除しても減らさない */
-  nextNumber: number;
+  version: 3;
   /** 次に発行するプロジェクトの id。削除しても減らさない */
   nextProjectId: number;
   /** 配列の順序がタブの順序。常に1つ以上 */
@@ -41,16 +41,29 @@ export type Backlog = {
 export const DEFAULT_PROJECT_NAME = 'マイプロジェクト';
 
 export function emptyBacklog(): Backlog {
-  return { version: 2, nextNumber: 1, nextProjectId: 2, projects: [{ id: 1, name: DEFAULT_PROJECT_NAME, items: [] }] };
+  return {
+    version: 3,
+    nextProjectId: 2,
+    projects: [{ id: 1, name: DEFAULT_PROJECT_NAME, nextNumber: 1, items: [] }],
+  };
 }
 
-/** 番号の PBI と、それが属するプロジェクト。無ければ null */
-export function findPbi(backlog: Backlog, number: number): { project: Project; pbi: Pbi } | null {
-  for (const project of backlog.projects) {
-    const pbi = project.items.find((p) => p.number === number);
-    if (pbi) return { project, pbi };
-  }
-  return null;
+/** PBI の番号はプロジェクトごとの連番なので、プロジェクトの id と番号の組で PBI を指す */
+export type PbiRef = { projectId: number; number: number };
+
+/** 以前の形式のリンク `#PBI-3` は、最初のタブのプロジェクトの PBI を指す */
+export type SelectedRef = PbiRef | { projectId: 'first'; number: number };
+
+/** 'first' を最初のプロジェクトの id に直す */
+export function resolveRef(backlog: Backlog, ref: SelectedRef): PbiRef {
+  return ref.projectId === 'first' ? { projectId: backlog.projects[0].id, number: ref.number } : ref;
+}
+
+/** 指した PBI と、それが属するプロジェクト。無ければ null */
+export function findPbi(backlog: Backlog, ref: PbiRef): { project: Project; pbi: Pbi } | null {
+  const project = backlog.projects.find((p) => p.id === ref.projectId);
+  const pbi = project?.items.find((p) => p.number === ref.number);
+  return project && pbi ? { project, pbi } : null;
 }
 
 export function countItems(backlog: Backlog): number {

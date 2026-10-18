@@ -14,7 +14,8 @@ function pbi(number: number, title: string, storyPoints: number | null = null): 
 
 /** 「マイプロジェクト」1つに PBI を入れて保存する */
 function seed(items: Pbi[], nextNumber = Math.max(0, ...items.map((p) => p.number)) + 1) {
-  seedBacklog({ ...backlogOf(['マイプロジェクト', items]), nextNumber });
+  const backlog = backlogOf(['マイプロジェクト', items]);
+  seedBacklog({ ...backlog, projects: [{ ...backlog.projects[0], nextNumber }] });
 }
 
 /** 共有データ。テストごとに作り直す */
@@ -216,7 +217,7 @@ describe('詳細パネル', () => {
     const panel = screen.getByRole('complementary');
     expect(within(panel).getByRole('heading', { name: 'PBI-2' })).toBeInTheDocument();
     expect(within(panel).getByLabelText('タイトル')).toHaveValue('b');
-    expect(window.location.hash).toBe('#PBI-2');
+    expect(window.location.hash).toBe('#1/PBI-2');
   });
 
   test('ハッシュ付きで開くとその PBI が選ばれる', () => {
@@ -308,7 +309,7 @@ describe('コピー', () => {
       [
         '## PBI-3 ログイン画面を作る',
         '',
-        `- リンク: ${window.location.origin}/Jisaku-Jira/#PBI-3`,
+        `- リンク: ${window.location.origin}/Jisaku-Jira/#1/PBI-3`,
         '- ステータス: In Progress',
         '- ストーリーポイント: 5',
         '',
@@ -362,7 +363,7 @@ describe('削除', () => {
 
     expect(rowTexts()).toEqual(['PBI-3', 'PBI-2']);
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
-    expect(stored().nextNumber).toBe(4);
+    expect(stored().projects[0].nextNumber).toBe(4);
   });
 
   test('確認で取り消すと削除しない', async () => {
@@ -501,7 +502,7 @@ describe('共有データとの接続', () => {
   test('PBI のリンクで開くと、受信してから詳細が開く', () => {
     seedTwoProjects([pbi(1, 'a')], [pbi(3, 'c')]);
     remote.hold();
-    window.history.replaceState(null, '', '/#PBI-3');
+    window.history.replaceState(null, '', '/#2/PBI-3');
     renderApp(remote);
     act(() => remote.flush());
     expect(tab('Tool')).toHaveAttribute('aria-selected', 'true');
@@ -574,21 +575,22 @@ describe('選択中のプロジェクト', () => {
     expect(screen.getByTestId('backlog-summary')).toHaveTextContent('3 件8 pt');
   });
 
-  test('作成した PBI は選択中のプロジェクトにだけ入り、番号は全体の通し番号になる', async () => {
+  test('作成した PBI は選択中のプロジェクトにだけ入り、番号はそのプロジェクトで 1 から振る', async () => {
     const user = userEvent.setup();
-    seedTwoProjects([pbi(1, 'a'), pbi(2, 'b')], []);
+    seedTwoProjects([1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => pbi(n, `app ${n}`)), []);
     localStorage.setItem(ACTIVE_PROJECT_KEY, '2');
     renderApp(remote);
-    await user.type(screen.getByRole('textbox', { name: '新しい PBI のタイトル' }), 'tool の PBI{Enter}');
-    expect(rowTexts()).toEqual(['PBI-3']);
-    expect(stored().projects.map((p) => p.items.map((i) => i.number))).toEqual([[1, 2], [3]]);
+    await user.type(screen.getByRole('textbox', { name: '新しい PBI のタイトル' }), 'yarikuri の PBI{Enter}');
+    expect(rowTexts()).toEqual(['PBI-1']);
+    expect(stored().projects[1].items.map((i) => i.number)).toEqual([1]);
+    expect(stored().projects[0].items).toHaveLength(9);
   });
 
   test('別のプロジェクトの PBI のリンクで開くと、そのプロジェクトが選ばれて詳細が開く', async () => {
     const user = userEvent.setup();
     seedTwoProjects([pbi(1, 'a')], [pbi(3, 'c')]);
     localStorage.setItem(ACTIVE_PROJECT_KEY, '1');
-    window.history.replaceState(null, '', '/#PBI-3');
+    window.history.replaceState(null, '', '/#2/PBI-3');
     renderApp(remote);
     expect(tab('Tool')).toHaveAttribute('aria-selected', 'true');
     expect(rowTexts()).toEqual(['PBI-3']);
@@ -625,7 +627,113 @@ describe('選択中のプロジェクト', () => {
     expect(rowTexts()).toEqual(['PBI-1', 'PBI-2']);
     await user.type(screen.getByRole('textbox', { name: '新しい PBI のタイトル' }), 'c{Enter}');
     expect(rowTexts()).toEqual(['PBI-1', 'PBI-2', 'PBI-4']);
-    expect(stored().version).toBe(2);
+    expect(stored().version).toBe(3);
+  });
+});
+
+describe('プロジェクトごとの番号とリンク', () => {
+  const panelTitle = () => within(screen.getByRole('complementary')).getByLabelText('タイトル');
+
+  test('同じ番号の PBI が別のプロジェクトにあっても、リンクのプロジェクトの PBI を開く', () => {
+    seedTwoProjects([pbi(3, 'web の 3')], [pbi(3, 'tool の 3')]);
+    localStorage.setItem(ACTIVE_PROJECT_KEY, '1');
+    window.history.replaceState(null, '', '/#2/PBI-3');
+    renderApp(remote);
+    expect(tab('Tool')).toHaveAttribute('aria-selected', 'true');
+    expect(panelTitle()).toHaveValue('tool の 3');
+  });
+
+  test('リンクはプロジェクトの名前ではなく id で指すので、名前を変えても開ける', () => {
+    seedBacklog(backlogOf(['Web', [pbi(1, 'a')]], ['Tools', [pbi(3, 'c')]]));
+    window.history.replaceState(null, '', '/#2/PBI-3');
+    renderApp(remote);
+    expect(tab('Tools')).toHaveAttribute('aria-selected', 'true');
+    expect(panelTitle()).toHaveValue('c');
+  });
+
+  test('2つ目のプロジェクトで PBI を選ぶと、ハッシュがそのプロジェクトの id を含む', async () => {
+    const user = userEvent.setup();
+    seedTwoProjects([pbi(3, 'web の 3')], [pbi(3, 'tool の 3')]);
+    localStorage.setItem(ACTIVE_PROJECT_KEY, '2');
+    renderApp(remote);
+    await user.click(screen.getByRole('button', { name: 'tool の 3' }));
+    expect(window.location.hash).toBe('#2/PBI-3');
+  });
+
+  test.each([
+    ['プロジェクトに無い番号', '/#2/PBI-9'],
+    ['無いプロジェクト', '/#7/PBI-1'],
+  ])('%s のリンクでは、記憶したプロジェクトの一覧だけを表示する', (_, url) => {
+    seedTwoProjects([pbi(1, 'a')], [pbi(1, 'b')]);
+    localStorage.setItem(ACTIVE_PROJECT_KEY, '2');
+    window.history.replaceState(null, '', url);
+    renderApp(remote);
+    expect(tab('Tool')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  });
+
+  test('以前の形式のリンク #PBI-<番号> は最初のタブのプロジェクトの PBI を開き、ハッシュは書き換えない', () => {
+    seedTwoProjects([pbi(8, 'app の 8')], [pbi(8, 'yarikuri の 8')]);
+    localStorage.setItem(ACTIVE_PROJECT_KEY, '2');
+    window.history.replaceState(null, '', '/#PBI-8');
+    renderApp(remote);
+    expect(tab('Web')).toHaveAttribute('aria-selected', 'true');
+    expect(panelTitle()).toHaveValue('app の 8');
+    expect(window.location.hash).toBe('#PBI-8');
+  });
+
+  test('以前の形式のリンクで、最初のプロジェクトに無い番号なら一覧だけを表示する', () => {
+    seedTwoProjects([pbi(1, 'a')], [pbi(12, 'b')]);
+    localStorage.setItem(ACTIVE_PROJECT_KEY, '2');
+    window.history.replaceState(null, '', '/#PBI-12');
+    renderApp(remote);
+    expect(tab('Tool')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  });
+
+  test('別々のプロジェクトの同じ番号の PBI に切り替えると、詳細パネルの内容も切り替わる', () => {
+    seedTwoProjects([pbi(1, 'web の 1')], [pbi(1, 'tool の 1')]);
+    window.history.replaceState(null, '', '/#1/PBI-1');
+    renderApp(remote);
+    expect(panelTitle()).toHaveValue('web の 1');
+    act(() => {
+      window.history.replaceState(null, '', '/#2/PBI-1');
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+    expect(tab('Tool')).toHaveAttribute('aria-selected', 'true');
+    expect(panelTitle()).toHaveValue('tool の 1');
+  });
+
+  test('通し番号（version 2）の共有データで開くと、2つ目以降のプロジェクトを振り直して表示する', async () => {
+    const user = userEvent.setup();
+    const at = (n: number) => `2026-10-01T00:${String(n).padStart(2, '0')}:00.000Z`;
+    remote = new FakeRemote(
+      JSON.stringify({
+        version: 2,
+        nextNumber: 11,
+        nextProjectId: 3,
+        projects: [
+          {
+            id: 1,
+            name: 'Jisaku-Jira-App',
+            items: [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({ ...pbi(n, `app ${n}`), createdAt: at(n) })),
+          },
+          { id: 2, name: 'Yarikuri', items: [{ ...pbi(10, 'yarikuri'), createdAt: at(10) }] },
+        ],
+      }),
+    );
+    renderApp(remote);
+    expect(rowTexts()).toEqual(['PBI-1', 'PBI-2', 'PBI-3', 'PBI-4', 'PBI-5', 'PBI-6', 'PBI-7', 'PBI-8', 'PBI-9']);
+    await user.click(tab('Yarikuri'));
+    expect(rowTexts()).toEqual(['PBI-1']);
+
+    await user.type(screen.getByRole('textbox', { name: '新しい PBI のタイトル' }), '次の PBI{Enter}');
+    expect(rowTexts()).toEqual(['PBI-1', 'PBI-2']);
+    expect(stored().version).toBe(3);
+    expect(stored().projects.map((p) => p.items.map((i) => i.number))).toEqual([
+      [1, 2, 3, 4, 5, 6, 7, 8, 9],
+      [1, 2],
+    ]);
   });
 });
 
@@ -780,7 +888,7 @@ describe('プロジェクトの削除', () => {
     expect(tab('Web')).toHaveAttribute('aria-selected', 'true');
     expect(rowTexts()).toEqual(['PBI-1']);
     expect(stored().projects.map((p) => p.items.map((i) => i.number))).toEqual([[1], [5]]);
-    expect(stored().nextNumber).toBe(6);
+    expect(stored().projects.map((p) => p.nextNumber)).toEqual([2, 6]);
   });
 
   test('左隣が無いときは右隣に切り替わる', async () => {
@@ -816,7 +924,8 @@ describe('インポート（複数のプロジェクト）', () => {
     seedTwoProjects();
     localStorage.setItem(ACTIVE_PROJECT_KEY, '2');
     renderApp(remote);
-    const data = { ...backlogOf(['Web', [pbi(1, 'x')]], ['Tool', [pbi(5, 'y')]]), nextNumber: 6 };
+    const files = backlogOf(['Web', [pbi(1, 'x')]], ['Tool', [pbi(5, 'y')]]);
+    const data = { ...files, projects: files.projects.map((p) => ({ ...p, nextNumber: 6 })) };
     await user.upload(screen.getByTestId('import-file'), new File([JSON.stringify(data)], 'all.json'));
     const dialog = await screen.findByRole('alertdialog');
     expect(dialog).toHaveTextContent(
@@ -829,11 +938,23 @@ describe('インポート（複数のプロジェクト）', () => {
     expect(rowTexts()).toEqual(['PBI-1', 'PBI-6']);
   });
 
-  test('別々のプロジェクトに同じ番号がある不正なファイルは読み込まない', async () => {
+  test('別々のプロジェクトに同じ番号があるファイルも読み込む', async () => {
     const user = userEvent.setup();
     seedTwoProjects();
     renderApp(remote);
     const data = backlogOf(['Web', [pbi(1, 'x')]], ['Tool', [pbi(1, 'y')]]);
+    await user.upload(screen.getByTestId('import-file'), new File([JSON.stringify(data)], 'same.json'));
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: '置き換える' }));
+    expect(rowTexts()).toEqual(['PBI-1']);
+    await user.click(tab('Tool'));
+    expect(rowTexts()).toEqual(['PBI-1']);
+  });
+
+  test('1つのプロジェクトの中で番号が重複したファイルは読み込まない', async () => {
+    const user = userEvent.setup();
+    seedTwoProjects();
+    renderApp(remote);
+    const data = backlogOf(['Web', [pbi(1, 'x')]], ['Tool', [pbi(1, 'y'), pbi(1, 'z')]]);
     await user.upload(screen.getByTestId('import-file'), new File([JSON.stringify(data)], 'dup.json'));
     expect(await screen.findByRole('alert')).toHaveTextContent('番号 1 が重複しています');
     expect(tabNames()).toEqual(['Web', 'Tool']);
