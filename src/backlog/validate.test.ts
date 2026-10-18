@@ -192,3 +192,39 @@ test.each<[string, (b: Data) => unknown]>([
 ])('%s データは拒否する', (_, mutate) => {
   expect(validateBacklog(mutate(sample() as unknown as Data)).ok).toBe(false);
 });
+
+test('プロジェクトをまたぐ番号の重複は理由に番号を示す', () => {
+  const result = validateBacklog(withProject(sample() as unknown as Data, 1, { items: [pbi(5)] }));
+  expect(result).toEqual({ ok: false, reason: '番号 5 が重複しています' });
+});
+
+describe('受入条件', () => {
+  const omitCriteria = ({ acceptanceCriteria: _, ...rest }: Data) => rest;
+
+  test('項目が無い version 2 の PBI は受入条件を空として読み、他の項目と順序は変えない', () => {
+    const b = sample() as unknown as Data;
+    const data = {
+      ...b,
+      projects: projectsOf(b).map((p) => ({ ...p, items: (p.items as Data[]).map(omitCriteria) })),
+    };
+    expect(validateBacklog(data)).toEqual({ ok: true, backlog: sample() });
+  });
+
+  test('項目が無い version 1 の PBI は受入条件を空として読む', () => {
+    const data = { ...version1(), items: (version1().items as Data[]).map(omitCriteria) };
+    const result = validateBacklog(data);
+    expect(result.ok && result.backlog.projects[0].items.map((p) => p.acceptanceCriteria)).toEqual(['', '']);
+  });
+
+  test('受入条件があれば値をそのまま保つ', () => {
+    const result = validateBacklog(withItem(sample() as unknown as Data, { acceptanceCriteria: '- 1つ目\n- 2つ目\n' }));
+    expect(result.ok && result.backlog.projects[0].items[0].acceptanceCriteria).toBe('- 1つ目\n- 2つ目\n');
+  });
+
+  test('受入条件が数値なら理由を示して拒否する', () => {
+    expect(validateBacklog(withItem(sample() as unknown as Data, { acceptanceCriteria: 1 }))).toEqual({
+      ok: false,
+      reason: '1 番目のプロジェクトの1 件目の acceptanceCriteria が文字列ではありません',
+    });
+  });
+});

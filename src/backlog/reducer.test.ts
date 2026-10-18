@@ -33,6 +33,7 @@ describe('PBI の作成', () => {
       number: 2,
       title: 'ログイン画面を作る',
       description: '',
+      acceptanceCriteria: '',
       status: 'todo',
       storyPoints: null,
       createdAt: now,
@@ -120,6 +121,12 @@ describe('PBI の更新', () => {
     });
     expect(ids(backlog)).toEqual(['PBI-1', 'PBI-2', 'PBI-3']);
     expect(items(backlog)[1]).toMatchObject({ title: '新しいタイトル', description: '説明', updatedAt: later });
+  });
+
+  test('受入条件だけを変更すると、他の項目は変わらず updatedAt が進む', () => {
+    const acceptanceCriteria = '- ログインできる\n- 誤ったパスワードではエラーが出る';
+    const backlog = backlogReducer(base, { type: 'update', number: 2, changes: { acceptanceCriteria }, now: later });
+    expect(items(backlog)[1]).toEqual({ ...items(base)[1], acceptanceCriteria, updatedAt: later });
   });
 
   test('タイトルを空にする変更は保存しない', () => {
