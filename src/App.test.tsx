@@ -29,8 +29,9 @@ function storedItems(): Pbi[] {
   return stored().projects[0].items;
 }
 
-function rowTexts(): string[] {
-  return screen
+/** 名前で指定した表の行の ID。既定は未完了の一覧 */
+function rowTexts(table = '未完了の PBI'): string[] {
+  return within(screen.getByRole('table', { name: table }))
     .getAllByRole('row')
     .slice(1)
     .map((row) => within(row).getAllByRole('cell')[1].textContent ?? '');
@@ -68,9 +69,19 @@ describe('一覧', () => {
       pbi(4, 'd'),
     ]);
     renderApp(remote);
-    expect(screen.getByTestId('backlog-summary')).toHaveTextContent('4 件10 pt');
+    expect(screen.getByTestId('backlog-summary')).toHaveTextContent('3 件7 pt');
     const items = within(screen.getByRole('list', { name: 'ステータス別の SP' })).getAllByRole('listitem');
     expect(items.map((li) => li.textContent)).toEqual(['To Do 2', 'In Progress 5', 'Done 3']);
+  });
+
+  test('件数と合計は To Do と In Progress だけで数え、他のプロジェクトは含めない', () => {
+    seedTwoProjects(
+      [pbi(1, 'a', 3), { ...pbi(2, 'b', 5), status: 'in_progress' }, pbi(3, 'c'), { ...pbi(4, 'd', 2), status: 'done' }],
+      [pbi(5, 'e', 8)],
+    );
+    renderApp(remote);
+    expect(rowTexts()).toEqual(['PBI-1', 'PBI-2', 'PBI-3']);
+    expect(screen.getByTestId('backlog-summary')).toHaveTextContent('3 件8 pt');
   });
 
   test('PBI がないときは空状態と作成の操作を表示する', () => {
@@ -79,6 +90,89 @@ describe('一覧', () => {
     expect(screen.getByRole('textbox', { name: '新しい PBI のタイトル' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '作成' })).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Done' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Done エリア', () => {
+  test('Done の PBI は未完了の一覧に出さず、下の Done エリアに件数・合計とともに並べる', () => {
+    seedTwoProjects(
+      [{ ...pbi(1, 'a', 3), status: 'done' }, pbi(2, 'b'), { ...pbi(3, 'c'), status: 'done' }],
+      [{ ...pbi(4, 'd', 5), status: 'done' }],
+    );
+    renderApp(remote);
+    expect(rowTexts()).toEqual(['PBI-2']);
+    expect(screen.getByRole('heading', { name: 'Done', level: 2 })).toBeInTheDocument();
+    expect(screen.getByTestId('done-summary')).toHaveTextContent('2 件3 pt');
+    expect(rowTexts('Done')).toEqual(['PBI-1', 'PBI-3']);
+  });
+
+  test('Done の行には並べ替えの持ち手が無い', () => {
+    seed([pbi(1, 'a'), { ...pbi(2, 'b'), status: 'done' }]);
+    renderApp(remote);
+    expect(screen.getByRole('button', { name: 'PBI-1 を並べ替え' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'PBI-2 を並べ替え' })).not.toBeInTheDocument();
+  });
+
+  test('Done の PBI が無いときは Done エリアを出さない', () => {
+    seed([pbi(1, 'a'), { ...pbi(2, 'b'), status: 'in_progress' }]);
+    renderApp(remote);
+    expect(screen.queryByRole('heading', { name: 'Done' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('done-summary')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('table')).toHaveLength(1);
+  });
+
+  test('すべて Done のときは未完了が無いことを出し、Done エリアにすべて並べる', () => {
+    seed([
+      { ...pbi(1, 'a', 2), status: 'done' },
+      { ...pbi(2, 'b', 3), status: 'done' },
+    ]);
+    renderApp(remote);
+    expect(screen.getByText('未完了の PBI はありません。')).toBeInTheDocument();
+    expect(screen.queryByRole('table', { name: '未完了の PBI' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '新しい PBI のタイトル' })).toBeInTheDocument();
+    expect(screen.getByTestId('backlog-summary')).toHaveTextContent('0 件0 pt');
+    expect(rowTexts('Done')).toEqual(['PBI-1', 'PBI-2']);
+  });
+
+  test('Done エリアの行を選ぶと詳細を開く', async () => {
+    const user = userEvent.setup();
+    seed([pbi(1, 'a'), { ...pbi(2, 'b'), status: 'done' }]);
+    renderApp(remote);
+    await user.click(within(screen.getByRole('table', { name: 'Done' })).getByRole('button', { name: 'b' }));
+    expect(within(screen.getByRole('complementary')).getByRole('heading', { name: 'PBI-2' })).toBeInTheDocument();
+  });
+
+  test('一覧で Done にすると Done エリアに移る', async () => {
+    const user = userEvent.setup();
+    seed([pbi(1, 'a'), pbi(2, 'b'), pbi(3, 'c')]);
+    renderApp(remote);
+    await user.selectOptions(screen.getByRole('combobox', { name: 'PBI-2 のステータス' }), 'done');
+    expect(rowTexts()).toEqual(['PBI-1', 'PBI-3']);
+    expect(rowTexts('Done')).toEqual(['PBI-2']);
+    expect(storedItems().map((p) => p.number)).toEqual([1, 2, 3]);
+  });
+
+  test('詳細から Done にしても移り、詳細パネルは開いたまま', async () => {
+    const user = userEvent.setup();
+    seed([pbi(1, 'a'), pbi(2, 'b')]);
+    window.history.replaceState(null, '', '/#PBI-2');
+    renderApp(remote);
+    await user.selectOptions(within(screen.getByRole('complementary')).getByLabelText('ステータス'), 'done');
+    expect(rowTexts()).toEqual(['PBI-1']);
+    expect(rowTexts('Done')).toEqual(['PBI-2']);
+    expect(within(screen.getByRole('complementary')).getByRole('heading', { name: 'PBI-2' })).toBeInTheDocument();
+  });
+
+  test('Done から To Do に戻すと、未完了の一覧の元の位置に戻る', async () => {
+    const user = userEvent.setup();
+    seed([pbi(1, 'a'), { ...pbi(2, 'b'), status: 'done' }, pbi(3, 'c')]);
+    renderApp(remote);
+    expect(rowTexts()).toEqual(['PBI-1', 'PBI-3']);
+    await user.selectOptions(screen.getByRole('combobox', { name: 'PBI-2 のステータス' }), 'todo');
+    expect(rowTexts()).toEqual(['PBI-1', 'PBI-2', 'PBI-3']);
+    expect(screen.queryByRole('heading', { name: 'Done' })).not.toBeInTheDocument();
+    expect(storedItems().map((p) => p.number)).toEqual([1, 2, 3]);
   });
 });
 

@@ -152,6 +152,25 @@
   color: var(--gray-700);
 }
 
+/* 完了した PBI。箱で包まず、小見出しと同じ罫線の表だけで未完了の一覧と分ける */
+.doneArea {
+  margin-top: var(--space-6);
+}
+
+.doneTitleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
+.doneHeading {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+
 .primary,
 .secondary {
   height: 30px;
