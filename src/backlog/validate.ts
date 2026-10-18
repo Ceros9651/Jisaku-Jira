@@ -124,6 +124,9 @@ function validateItems(rawItems: unknown[], seen: Set<number>, prefix: string): 
     seen.add(raw.number);
     if (typeof raw.title !== 'string' || raw.title.trim() === '') return `${label}の title が空です`;
     if (typeof raw.description !== 'string') return `${label}の description が文字列ではありません`;
+    // 受入条件はあとから足した項目なので、無ければ空として読む
+    const acceptanceCriteria = raw.acceptanceCriteria === undefined ? '' : raw.acceptanceCriteria;
+    if (typeof acceptanceCriteria !== 'string') return `${label}の acceptanceCriteria が文字列ではありません`;
     if (!isStatus(raw.status)) return `${label}の status が不正です`;
     if (!isValidStoryPoints(raw.storyPoints)) return `${label}の storyPoints が不正です`;
     if (typeof raw.createdAt !== 'string' || typeof raw.updatedAt !== 'string') {
@@ -133,6 +136,7 @@ function validateItems(rawItems: unknown[], seen: Set<number>, prefix: string): 
       number: raw.number,
       title: raw.title.trim(),
       description: raw.description,
+      acceptanceCriteria,
       status: raw.status,
       storyPoints: raw.storyPoints,
       createdAt: raw.createdAt,

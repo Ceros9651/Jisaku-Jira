@@ -8,6 +8,7 @@ function pbi(overrides: Partial<Pbi>): Pbi {
     number: 1,
     title: 't',
     description: '',
+    acceptanceCriteria: '',
     status: 'todo',
     storyPoints: null,
     createdAt: now,
@@ -33,6 +34,7 @@ describe('formatPbiMarkdown', () => {
         status: 'in_progress',
         storyPoints: 5,
         description: 'メールアドレスとパスワードでログインできる。',
+        acceptanceCriteria: '- 正しいメールアドレスとパスワードでログインできる\n- 誤ったパスワードではエラーが表示される',
       }),
       url,
     );
@@ -48,14 +50,24 @@ describe('formatPbiMarkdown', () => {
         '',
         'メールアドレスとパスワードでログインできる。',
         '',
+        '### 受入条件',
+        '',
+        '- 正しいメールアドレスとパスワードでログインできる',
+        '- 誤ったパスワードではエラーが表示される',
+        '',
       ].join('\n'),
     );
   });
 
-  test('SP 未設定は「未設定」、空白だけの説明は「（なし）」', () => {
+  test('SP 未設定は「未設定」、空白だけの説明と空の受入条件は「（なし）」', () => {
     const markdown = formatPbiMarkdown(pbi({ description: '  \n ' }), 'u');
     expect(markdown).toContain('- ストーリーポイント: 未設定\n');
-    expect(markdown.endsWith('### 説明\n\n（なし）\n')).toBe(true);
+    expect(markdown.endsWith('### 説明\n\n（なし）\n\n### 受入条件\n\n（なし）\n')).toBe(true);
+  });
+
+  test('空白だけの受入条件も「（なし）」', () => {
+    const markdown = formatPbiMarkdown(pbi({ acceptanceCriteria: ' \n\n ' }), 'u');
+    expect(markdown.endsWith('### 受入条件\n\n（なし）\n')).toBe(true);
   });
 
   test('SP 0 はそのまま 0', () => {
@@ -64,6 +76,6 @@ describe('formatPbiMarkdown', () => {
 
   test('複数行の説明はそのまま入れる', () => {
     const markdown = formatPbiMarkdown(pbi({ description: '1行目\n\n- 箇条書き\n' }), 'u');
-    expect(markdown.endsWith('### 説明\n\n1行目\n\n- 箇条書き\n')).toBe(true);
+    expect(markdown).toContain('### 説明\n\n1行目\n\n- 箇条書き\n\n### 受入条件');
   });
 });

@@ -9,7 +9,7 @@ import {
   normalizeTitle,
 } from './model';
 
-export type PbiChanges = Partial<Pick<Pbi, 'title' | 'description' | 'status' | 'storyPoints'>>;
+export type PbiChanges = Partial<Pick<Pbi, 'title' | 'description' | 'acceptanceCriteria' | 'status' | 'storyPoints'>>;
 
 export type BacklogAction =
   | {
@@ -45,6 +45,7 @@ export function backlogReducer(state: Backlog, action: BacklogAction): Backlog {
         number: project.nextNumber,
         title,
         description: action.description ?? '',
+        acceptanceCriteria: '',
         status: 'todo',
         storyPoints,
         createdAt: action.now,
@@ -126,6 +127,7 @@ function applyChanges(pbi: Pbi, changes: PbiChanges, now: string): Pbi | null {
     next.title = title;
   }
   if (changes.description !== undefined) next.description = changes.description;
+  if (changes.acceptanceCriteria !== undefined) next.acceptanceCriteria = changes.acceptanceCriteria;
   if (changes.status !== undefined) {
     if (!isStatus(changes.status)) return null;
     next.status = changes.status satisfies Status;

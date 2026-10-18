@@ -7,6 +7,7 @@ export function pbi(number: number, fields: Partial<Omit<Pbi, 'number'>> = {}): 
     number,
     title: `PBI ${number}`,
     description: '',
+    acceptanceCriteria: '',
     status: 'todo',
     storyPoints: null,
     createdAt: now,

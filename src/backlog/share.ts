@@ -13,6 +13,7 @@ export function pbiUrl(ref: PbiRef, location: Pick<Location, 'origin' | 'pathnam
 /** AI のチャットなどに貼るための、PBI のリンクと内容の Markdown */
 export function formatPbiMarkdown(pbi: Pbi, url: string): string {
   const description = pbi.description.trim();
+  const acceptanceCriteria = pbi.acceptanceCriteria.trim();
   return [
     `## ${formatPbiId(pbi.number)} ${pbi.title}`,
     '',
@@ -23,6 +24,10 @@ export function formatPbiMarkdown(pbi: Pbi, url: string): string {
     '### 説明',
     '',
     description === '' ? '（なし）' : description,
+    '',
+    '### 受入条件',
+    '',
+    acceptanceCriteria === '' ? '（なし）' : acceptanceCriteria,
     '',
   ].join('\n');
 }
