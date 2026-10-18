@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { type Backlog, STATUSES, STATUS_LABELS, countItems, findPbi } from './backlog/model';
+import { type Backlog, type Pbi, type Status, STATUSES, STATUS_LABELS, countItems, findPbi } from './backlog/model';
 import type { BacklogRemote } from './backlog/remote';
 import { getStorage, loadLegacyBacklog, removeLegacyBacklog } from './backlog/storage';
 import { readBacklogFile, downloadBacklog } from './backlog/transfer';
@@ -24,6 +24,8 @@ type Props = {
 type PendingImport = { backlog: Backlog; source: string; legacy: boolean };
 
 const now = () => new Date().toISOString();
+
+const sumPoints = (items: Pbi[]) => items.reduce((sum, p) => sum + (p.storyPoints ?? 0), 0);
 
 /** 「2 プロジェクト・12 件」 */
 function describeBacklog(backlog: Backlog): string {
@@ -52,11 +54,19 @@ export function App({ remote, storage: storageProp }: Props) {
 
   const items = project.items;
   const selectedPbi = selected === null ? null : (findPbi(backlog, selected)?.pbi ?? null);
-  const totalPoints = items.reduce((sum, p) => sum + (p.storyPoints ?? 0), 0);
+  // 並び順は items のまま、未完了と Done に分けて表示する
+  const activeItems = items.filter((p) => p.status !== 'done');
+  const doneItems = items.filter((p) => p.status === 'done');
+  const activePoints = sumPoints(activeItems);
+  const donePoints = sumPoints(doneItems);
   const pointsByStatus = STATUSES.map((status) => ({
     status,
-    points: items.filter((p) => p.status === status).reduce((sum, p) => sum + (p.storyPoints ?? 0), 0),
+    points: sumPoints(items.filter((p) => p.status === status)),
   }));
+
+  function changeStatus(number: number, status: Status) {
+    dispatch({ type: 'update', number, changes: { status }, now: now() });
+  }
 
   /** タブの切り替え。開いていた詳細パネルと名前の変更は閉じる */
   function switchProject(id: number) {
@@ -243,8 +253,8 @@ export function App({ remote, storage: storageProp }: Props) {
                 </h1>
               )}
               <p className={styles.summary} data-testid="backlog-summary">
-                <span>{items.length} 件</span>
-                <span>{totalPoints} pt</span>
+                <span>{activeItems.length} 件</span>
+                <span>{activePoints} pt</span>
               </p>
               <ul className={styles.statusPoints} aria-label="ステータス別の SP">
                 {pointsByStatus.map(({ status, points }) => (
@@ -284,13 +294,45 @@ export function App({ remote, storage: storageProp }: Props) {
             {items.length === 0 ? (
               <p className={styles.empty}>PBI はまだありません。上の入力欄にタイトルを入れて作成してください。</p>
             ) : (
-              <BacklogTable
-                items={items}
-                selected={selectedPbi?.number ?? null}
-                onSelect={select}
-                onStatusChange={(number, status) => dispatch({ type: 'update', number, changes: { status }, now: now() })}
-                onMove={(number, toIndex) => dispatch({ type: 'move', number, toIndex })}
-              />
+              <>
+                {activeItems.length === 0 ? (
+                  <p className={styles.empty}>未完了の PBI はありません。</p>
+                ) : (
+                  <BacklogTable
+                    items={activeItems}
+                    label="未完了の PBI"
+                    selected={selectedPbi?.number ?? null}
+                    onSelect={select}
+                    onStatusChange={changeStatus}
+                    onMove={(number, overNumber) => {
+                      // 表の中の位置ではなく、Done も含めたバックログ全体の位置に置き換える
+                      const toIndex = items.findIndex((p) => p.number === overNumber);
+                      if (toIndex !== -1) dispatch({ type: 'move', number, toIndex });
+                    }}
+                  />
+                )}
+                {doneItems.length > 0 && (
+                  <section className={styles.doneArea} aria-labelledby="done-heading">
+                    <div className={styles.doneTitleRow}>
+                      <h2 id="done-heading" className={styles.doneHeading}>
+                        Done
+                      </h2>
+                      <p className={styles.summary} data-testid="done-summary">
+                        <span>{doneItems.length} 件</span>
+                        <span>{donePoints} pt</span>
+                      </p>
+                    </div>
+                    <BacklogTable
+                      items={doneItems}
+                      sortable={false}
+                      labelledBy="done-heading"
+                      selected={selectedPbi?.number ?? null}
+                      onSelect={select}
+                      onStatusChange={changeStatus}
+                    />
+                  </section>
+                )}
+              </>
             )}
           </section>
 

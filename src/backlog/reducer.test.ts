@@ -194,6 +194,27 @@ describe('PBI の移動', () => {
     expect(ids(backlog, 2)).toEqual(['PBI-4', 'PBI-3']);
     expect(ids(backlog, 1)).toEqual(['PBI-1', 'PBI-2']);
   });
+
+  // 未完了の一覧からは、ドロップ先の PBI の全体の位置を toIndex に渡す
+  describe('間に Done の PBI があるとき（全体 1, 2(Done), 3）', () => {
+    const withDone = backlogReducer(base, { type: 'update', number: 2, changes: { status: 'done' }, now });
+
+    test('3 を 1 の位置へ移すと 3, 1, 2 になる', () => {
+      expect(ids(backlogReducer(withDone, { type: 'move', number: 3, toIndex: 0 }))).toEqual([
+        'PBI-3',
+        'PBI-1',
+        'PBI-2',
+      ]);
+    });
+
+    test('1 を 3 の位置へ移すと 2, 3, 1 になり、未完了どうしは 3, 1 の順になる', () => {
+      expect(ids(backlogReducer(withDone, { type: 'move', number: 1, toIndex: 2 }))).toEqual([
+        'PBI-2',
+        'PBI-3',
+        'PBI-1',
+      ]);
+    });
+  });
 });
 
 describe('プロジェクト', () => {

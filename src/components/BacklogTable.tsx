@@ -17,7 +17,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useEffect, useRef, useState } from 'react';
+import { type CSSProperties, type ReactNode, type Ref, useEffect, useRef, useState } from 'react';
 import { type Pbi, type Status, formatPbiId } from '../backlog/model';
 import { formatPbiMarkdown, pbiUrl } from '../backlog/share';
 import styles from './BacklogTable.module.css';
@@ -28,11 +28,80 @@ type Props = {
   selected: number | null;
   onSelect: (number: number) => void;
   onStatusChange: (number: number, status: Status) => void;
-  onMove: (number: number, toIndex: number) => void;
+  /** 並べ替えできる表のときに使う。移動先は、ドロップした位置にある PBI の番号 */
+  onMove?: (number: number, overNumber: number) => void;
+  /** false のときは並べ替えの持ち手を出さず、ドラッグでもキーボードでも動かさない */
+  sortable?: boolean;
+  /** 表の名前。labelledBy があればそちらを使う */
+  label?: string;
+  labelledBy?: string;
 };
 
-export function BacklogTable({ items, selected, onSelect, onStatusChange, onMove }: Props) {
+export function BacklogTable({
+  items,
+  selected,
+  onSelect,
+  onStatusChange,
+  onMove,
+  sortable = true,
+  label,
+  labelledBy,
+}: Props) {
   const [copyMessage, setCopyMessage] = useState('');
+  const Row = sortable ? SortableRow : StaticRow;
+
+  const table = (
+    <>
+      <table className={styles.table} aria-label={labelledBy ? undefined : label} aria-labelledby={labelledBy}>
+        <thead>
+          <tr>
+            <th className={styles.handleCol}>
+              <span className="visually-hidden">並べ替え</span>
+            </th>
+            <th className={styles.idCol}>ID</th>
+            <th>タイトル</th>
+            <th className={styles.statusCol}>ステータス</th>
+            <th className={styles.pointsCol}>SP</th>
+            <th className={styles.copyCol}>
+              <span className="visually-hidden">コピー</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((pbi) => (
+            <Row
+              key={pbi.number}
+              pbi={pbi}
+              selected={pbi.number === selected}
+              onSelect={onSelect}
+              onStatusChange={onStatusChange}
+              onCopyResult={setCopyMessage}
+            />
+          ))}
+        </tbody>
+      </table>
+      <p role="status" className="visually-hidden">
+        {copyMessage}
+      </p>
+    </>
+  );
+
+  return sortable ? (
+    <SortableList items={items} onMove={onMove}>
+      {table}
+    </SortableList>
+  ) : (
+    table
+  );
+}
+
+type SortableListProps = {
+  items: Pbi[];
+  onMove?: (number: number, overNumber: number) => void;
+  children: ReactNode;
+};
+
+function SortableList({ items, onMove, children }: SortableListProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -55,8 +124,7 @@ export function BacklogTable({ items, selected, onSelect, onStatusChange, onMove
 
   function handleDragEnd({ active, over }: DragEndEvent) {
     if (!over || active.id === over.id) return;
-    const toIndex = items.findIndex((p) => p.number === Number(over.id));
-    if (toIndex !== -1) onMove(Number(active.id), toIndex);
+    onMove?.(Number(active.id), Number(over.id));
   }
 
   return (
@@ -67,39 +135,9 @@ export function BacklogTable({ items, selected, onSelect, onStatusChange, onMove
       onDragEnd={handleDragEnd}
       accessibility={{ announcements, screenReaderInstructions }}
     >
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th className={styles.handleCol}>
-              <span className="visually-hidden">並べ替え</span>
-            </th>
-            <th className={styles.idCol}>ID</th>
-            <th>タイトル</th>
-            <th className={styles.statusCol}>ステータス</th>
-            <th className={styles.pointsCol}>SP</th>
-            <th className={styles.copyCol}>
-              <span className="visually-hidden">コピー</span>
-            </th>
-          </tr>
-        </thead>
-        <SortableContext items={items.map((p) => p.number)} strategy={verticalListSortingStrategy}>
-          <tbody>
-            {items.map((pbi) => (
-              <Row
-                key={pbi.number}
-                pbi={pbi}
-                selected={pbi.number === selected}
-                onSelect={onSelect}
-                onStatusChange={onStatusChange}
-                onCopyResult={setCopyMessage}
-              />
-            ))}
-          </tbody>
-        </SortableContext>
-      </table>
-      <p role="status" className="visually-hidden">
-        {copyMessage}
-      </p>
+      <SortableContext items={items.map((p) => p.number)} strategy={verticalListSortingStrategy}>
+        {children}
+      </SortableContext>
     </DndContext>
   );
 }
@@ -112,6 +150,47 @@ type RowProps = {
   onCopyResult: (message: string) => void;
 };
 
+function SortableRow(props: RowProps) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+    id: props.pbi.number,
+  });
+
+  return (
+    <RowCells
+      {...props}
+      rowRef={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform), transition }}
+      dragging={isDragging}
+      handle={
+        <button
+          type="button"
+          ref={setActivatorNodeRef}
+          className={styles.handle}
+          aria-label={`${formatPbiId(props.pbi.number)} を並べ替え`}
+          {...attributes}
+          {...listeners}
+        >
+          <svg width="8" height="14" viewBox="0 0 8 14" aria-hidden="true">
+            <g fill="currentColor">
+              <circle cx="2" cy="2" r="1.2" />
+              <circle cx="6" cy="2" r="1.2" />
+              <circle cx="2" cy="7" r="1.2" />
+              <circle cx="6" cy="7" r="1.2" />
+              <circle cx="2" cy="12" r="1.2" />
+              <circle cx="6" cy="12" r="1.2" />
+            </g>
+          </svg>
+        </button>
+      }
+    />
+  );
+}
+
+/** 並べ替えない表の行。持ち手の列は空のまま残し、並べ替えできる表と列の幅を揃える */
+function StaticRow(props: RowProps) {
+  return <RowCells {...props} />;
+}
+
 type CopyState = 'idle' | 'copied' | 'failed';
 
 const COPY_LABELS: Record<CopyState, string> = {
@@ -123,10 +202,24 @@ const COPY_LABELS: Record<CopyState, string> = {
 /** 結果の表示を元に戻すまでの時間 */
 const COPY_RESET_MS = 2000;
 
-function Row({ pbi, selected, onSelect, onStatusChange, onCopyResult }: RowProps) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
-    id: pbi.number,
-  });
+type RowCellsProps = RowProps & {
+  rowRef?: Ref<HTMLTableRowElement>;
+  style?: CSSProperties;
+  dragging?: boolean;
+  handle?: ReactNode;
+};
+
+function RowCells({
+  pbi,
+  selected,
+  onSelect,
+  onStatusChange,
+  onCopyResult,
+  rowRef,
+  style,
+  dragging = false,
+  handle,
+}: RowCellsProps) {
   const id = formatPbiId(pbi.number);
   const [copyState, setCopyState] = useState<CopyState>('idle');
   const resetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -151,32 +244,12 @@ function Row({ pbi, selected, onSelect, onStatusChange, onCopyResult }: RowProps
 
   return (
     <tr
-      ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={[styles.row, selected && styles.selected, isDragging && styles.dragging].filter(Boolean).join(' ')}
+      ref={rowRef}
+      style={style}
+      className={[styles.row, selected && styles.selected, dragging && styles.dragging].filter(Boolean).join(' ')}
       aria-selected={selected}
     >
-      <td className={styles.handleCol}>
-        <button
-          type="button"
-          ref={setActivatorNodeRef}
-          className={styles.handle}
-          aria-label={`${id} を並べ替え`}
-          {...attributes}
-          {...listeners}
-        >
-          <svg width="8" height="14" viewBox="0 0 8 14" aria-hidden="true">
-            <g fill="currentColor">
-              <circle cx="2" cy="2" r="1.2" />
-              <circle cx="6" cy="2" r="1.2" />
-              <circle cx="2" cy="7" r="1.2" />
-              <circle cx="6" cy="7" r="1.2" />
-              <circle cx="2" cy="12" r="1.2" />
-              <circle cx="6" cy="12" r="1.2" />
-            </g>
-          </svg>
-        </button>
-      </td>
+      <td className={styles.handleCol}>{handle}</td>
       <td className={styles.idCol}>{id}</td>
       <td className={styles.titleCell}>
         <button type="button" className={styles.title} onClick={() => onSelect(pbi.number)}>
