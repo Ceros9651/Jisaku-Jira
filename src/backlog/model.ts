@@ -13,6 +13,7 @@ export type Pbi = {
   number: number;
   title: string;
   description: string;
+  acceptanceCriteria: string;
   status: Status;
   storyPoints: number | null;
   /** ISO 8601 */

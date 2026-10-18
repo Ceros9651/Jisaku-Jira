@@ -28,6 +28,7 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
   const id = formatPbiId(pbi.number);
   const [title, setTitle] = useState(pbi.title);
   const [description, setDescription] = useState(pbi.description);
+  const [acceptanceCriteria, setAcceptanceCriteria] = useState(pbi.acceptanceCriteria);
   const [storyPoints, setStoryPoints] = useState(pbi.storyPoints === null ? '' : String(pbi.storyPoints));
   const [errors, setErrors] = useState<Errors>({});
   const [saved, setSaved] = useState(false);
@@ -36,6 +37,7 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
   const dirty =
     title !== pbi.title ||
     description !== pbi.description ||
+    acceptanceCriteria !== pbi.acceptanceCriteria ||
     storyPoints !== (pbi.storyPoints === null ? '' : String(pbi.storyPoints));
 
   function save() {
@@ -47,7 +49,7 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
     setErrors(nextErrors);
     if (normalizedTitle === null || parsedPoints === undefined) return;
 
-    onSave({ title: normalizedTitle, description, storyPoints: parsedPoints });
+    onSave({ title: normalizedTitle, description, acceptanceCriteria, storyPoints: parsedPoints });
     setTitle(normalizedTitle);
     setStoryPoints(parsedPoints === null ? '' : String(parsedPoints));
     setSaved(true);
@@ -116,10 +118,20 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
         <label className={styles.field}>
           <span className={styles.label}>説明</span>
           <textarea
-            className={styles.description}
+            className={styles.longText}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={10}
+          />
+        </label>
+
+        <label className={styles.field}>
+          <span className={styles.label}>受入条件</span>
+          <textarea
+            className={styles.longText}
+            value={acceptanceCriteria}
+            onChange={(e) => setAcceptanceCriteria(e.target.value)}
+            rows={6}
           />
         </label>
 

@@ -9,7 +9,7 @@ import { FakeRemote } from './test/remote';
 const now = '2026-10-12T00:00:00.000Z';
 
 function pbi(number: number, title: string, storyPoints: number | null = null): Pbi {
-  return { number, title, description: '', status: 'todo', storyPoints, createdAt: now, updatedAt: now };
+  return { number, title, description: '', acceptanceCriteria: '', status: 'todo', storyPoints, createdAt: now, updatedAt: now };
 }
 
 /** 「マイプロジェクト」1つに PBI を入れて保存する */
@@ -187,6 +187,42 @@ describe('詳細パネル', () => {
     expect(storedItems()[0]).toMatchObject({ title: 'a', storyPoints: null });
   });
 
+  test('受入条件を入力して保存すると反映され、開き直しても残る', async () => {
+    const user = userEvent.setup();
+    seed([pbi(1, 'a'), pbi(2, 'b')]);
+    renderApp(remote);
+    await user.click(screen.getByRole('button', { name: 'b' }));
+    await user.type(
+      within(screen.getByRole('complementary')).getByLabelText('受入条件'),
+      '- ログインできる{Enter}- 誤ったパスワードではエラーが出る',
+    );
+    await user.click(within(screen.getByRole('complementary')).getByRole('button', { name: '保存' }));
+    const criteria = '- ログインできる\n- 誤ったパスワードではエラーが出る';
+    expect(storedItems()[1]).toMatchObject({ number: 2, title: 'b', description: '', acceptanceCriteria: criteria });
+
+    await user.click(screen.getByRole('button', { name: '詳細を閉じる' }));
+    await user.click(screen.getByRole('button', { name: 'b' }));
+    expect(within(screen.getByRole('complementary')).getByLabelText('受入条件')).toHaveValue(criteria);
+  });
+
+  test('受入条件だけを変えると保存ボタンが押せるようになる', async () => {
+    const user = userEvent.setup();
+    seed([pbi(1, 'a')]);
+    window.history.replaceState(null, '', '/#PBI-1');
+    renderApp(remote);
+    const panel = screen.getByRole('complementary');
+    expect(within(panel).getByRole('button', { name: '保存' })).toBeDisabled();
+    await user.type(within(panel).getByLabelText('受入条件'), 'x');
+    expect(within(panel).getByRole('button', { name: '保存' })).toBeEnabled();
+  });
+
+  test('受入条件を書いていない PBI ではラベル付きの空の欄が出る', () => {
+    seed([pbi(1, 'a')]);
+    window.history.replaceState(null, '', '/#PBI-1');
+    renderApp(remote);
+    expect(within(screen.getByRole('complementary')).getByLabelText('受入条件')).toHaveValue('');
+  });
+
   test('詳細からステータスを変更できる', async () => {
     const user = userEvent.setup();
     seed([pbi(1, 'a')]);
@@ -221,6 +257,10 @@ describe('コピー', () => {
         '### 説明',
         '',
         '説明です',
+        '',
+        '### 受入条件',
+        '',
+        '（なし）',
         '',
       ].join('\n'),
     );
