@@ -21,6 +21,7 @@ import { type CSSProperties, type ReactNode, type Ref, useEffect, useRef, useSta
 import { type Pbi, type Status, formatPbiId } from '../backlog/model';
 import { formatPbiMarkdown, pbiUrl } from '../backlog/share';
 import styles from './BacklogTable.module.css';
+import { PbiTypeIcon } from './icons';
 import { StatusSelect } from './StatusSelect';
 
 type Props = {
@@ -61,10 +62,21 @@ export function BacklogTable({
             <th className={styles.handleCol}>
               <span className="visually-hidden">並べ替え</span>
             </th>
-            <th className={styles.idCol}>ID</th>
-            <th>タイトル</th>
-            <th className={styles.statusCol}>ステータス</th>
-            <th className={styles.pointsCol}>SP</th>
+            <th className={styles.typeCol}>
+              <span className="visually-hidden">種類</span>
+            </th>
+            <th className={styles.idCol}>
+              <span className="visually-hidden">ID</span>
+            </th>
+            <th>
+              <span className="visually-hidden">タイトル</span>
+            </th>
+            <th className={styles.statusCol}>
+              <span className="visually-hidden">ステータス</span>
+            </th>
+            <th className={styles.pointsCol}>
+              <span className="visually-hidden">SP</span>
+            </th>
             <th className={styles.copyCol}>
               <span className="visually-hidden">コピー</span>
             </th>
@@ -256,7 +268,10 @@ function RowCells({
       aria-selected={selected}
     >
       <td className={styles.handleCol}>{handle}</td>
-      <td className={styles.idCol}>{id}</td>
+      <td className={styles.typeCol}>
+        <PbiTypeIcon />
+      </td>
+      <td className={[styles.idCol, pbi.status === 'done' && styles.doneId].filter(Boolean).join(' ')}>{id}</td>
       <td className={styles.titleCell}>
         <button type="button" className={styles.title} onClick={() => onSelect(pbi.number)}>
           {pbi.title}
@@ -269,7 +284,16 @@ function RowCells({
           label={`${id} のステータス`}
         />
       </td>
-      <td className={styles.pointsCol}>{pbi.storyPoints ?? ''}</td>
+      <td className={styles.pointsCol}>
+        {pbi.storyPoints === null ? (
+          <span className={styles.points}>
+            <span aria-hidden="true">-</span>
+            <span className="visually-hidden">未設定</span>
+          </span>
+        ) : (
+          <span className={styles.points}>{pbi.storyPoints}</span>
+        )}
+      </td>
       <td className={styles.copyCol}>
         <button type="button" className={styles.copy} aria-label={`${id} をコピー`} onClick={() => void copy()}>
           {COPY_LABELS[copyState]}
