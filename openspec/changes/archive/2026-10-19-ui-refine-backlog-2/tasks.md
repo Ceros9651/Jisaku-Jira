@@ -18,11 +18,13 @@
 
 - [x] 4.1 src/components/BacklogTable.module.css の `.statusCol` に `text-align: right` を付け、幅を「In Progress」のラベルが収まる 120px 程度にする。`.pointsCol` を 40px 程度に詰め、ステータス・SP・コピーの間が 8px 前後になるようにする。desktop 1440×900 で、「In Progress」の行と「To Do」の行で、ステータスのラベルの右端から SP のバッジまでの距離が同じになることを確認する。詳細パネルのステータスの見た目が変わっていないことも確認する
 
-- [ ] 4.2 src/components/BacklogTable.module.css の `.copy` を `text-align: left` にし、`.copyCol` の左の余白を 0 にして、SP のバッジの直後に 8px で「コピー」が来るようにする（`.copy` の幅 54px は残し、「コピー失敗」に変わっても列がずれないようにする）。desktop 1440×900 と laptop 1280×720 で、SP のバッジの右端から「コピー」の文字の左端までがどの行も 8px 前後になること、SP が未設定の行でもコピーの位置がずれないことを確認する
-- [ ] 4.3 同じファイルの 560px 以下のメディアクエリで、2段目の grid の列を `48px auto auto auto 1fr` 程度にし、ステータスを `text-align: left`・幅は中身なりにして、ID の後ろにステータス・SP・コピーを左から 8px 間隔（`column-gap`）で並べる。mobile 390×844 で、「In Progress」の行と「To Do」の行でステータスの右端から SP のバッジまでの距離が同じになること、横スクロールが出ないこと、1段目のタイトルの見え方が変わっていないことを確認する
-- [ ] 4.4 4.2・4.3 を受けて src/App.test.tsx 等で見た目に関わる期待値が変わる場合は直し、`npm run typecheck` と `npm test` が通ることを確認する
+- [x] 4.2 src/components/BacklogTable.module.css の `.copy` を `text-align: left` にし、`.copyCol` の左の余白を 0 にして、SP のバッジの直後に 8px で「コピー」が来るようにする（`.copy` の幅 54px は残し、「コピー失敗」に変わっても列がずれないようにする）。desktop 1440×900 と laptop 1280×720 で、SP のバッジの右端から「コピー」の文字の左端までがどの行も 8px 前後になること、SP が未設定の行でもコピーの位置がずれないことを確認する
+- [x] 4.3 同じファイルの 560px 以下のメディアクエリで、2段目の grid の列を `48px auto auto auto 1fr` 程度にし、ステータスを `text-align: left`・幅は中身なりにして、ID の後ろにステータス・SP・コピーを左から 8px 間隔（`column-gap`）で並べる。mobile 390×844 で、「In Progress」の行と「To Do」の行でステータスの右端から SP のバッジまでの距離が同じになること、横スクロールが出ないこと、1段目のタイトルの見え方が変わっていないことを確認する
+- [x] 4.4 4.2・4.3 を受けて src/App.test.tsx 等で見た目に関わる期待値が変わる場合は直し、`npm run typecheck` と `npm test` が通ることを確認する
+
+- [x] 4.5 docs/design-principles.md の「行の右側の項目（ステータス・SP・コピー）は右揃えにし、8px 前後の間隔で詰めて並べる。（ui-refine-backlog-2）」を、spec の「行の右側の項目の並び」に合わせて「1段の行では右揃えにし、幅 560px 以下の2段の行では2段目の ID の後ろに左から並べる。どちらも 8px 前後の間隔で詰める。」の趣旨に書き直す（文書だけの修正）。spec と方針の文が食い違っていないことを読み比べて確認する
 
 ## 5. 確認
 
 - [x] 5.1 `npm run typecheck` と `npm test` が通ることを確認する
-- [ ] 5.2 （ユーザーが実行）`/ui-review --verify ui-refine-backlog-2` で Before/After を確認する。実装担当はこのタスクにチェックを付けない
+- [x] 5.2 （ユーザーが実行）`/ui-review --verify ui-refine-backlog-2` で Before/After を確認する。実装担当はこのタスクにチェックを付けない
