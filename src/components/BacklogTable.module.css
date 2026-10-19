@@ -98,9 +98,11 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 左の余白を無くし、SP のバッジの右の余白（8px）だけを挟んで「コピー」を置く */
 .copyCol {
-  width: 70px;
-  text-align: right !important;
+  width: 62px;
+  padding-left: 0 !important;
+  text-align: left !important;
 }
 
 .copy {
@@ -112,7 +114,7 @@
   background: none;
   color: var(--text-muted);
   font-size: var(--text-xs);
-  text-align: right;
+  text-align: left;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -185,11 +187,14 @@
 
   .row {
     display: grid;
-    /* ID の幅を固定し、2段目のステータスの開始位置を行ごとに揃える */
-    grid-template-columns: 20px 48px 1fr auto auto;
+    /*
+     * ID の幅を固定し、2段目のステータスの開始位置を行ごとに揃える。
+     * ステータス・SP・コピーは中身なりの幅で左から詰め、余りは最後の列に回して、間隔をステータスによらず 8px にする
+     */
+    grid-template-columns: 20px 48px auto auto auto 1fr;
     grid-template-areas:
-      'handle title title title title'
-      'handle id status points copy';
+      'handle title title title title title'
+      'handle id status points copy .';
     align-items: center;
     column-gap: var(--space-2);
     row-gap: 2px;
