@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { TITLE_REQUIRED, normalizeTitle } from '../backlog/model';
 import styles from './CreatePbiForm.module.css';
+import { PlusIcon } from './icons';
 
 type Props = {
   onCreate: (title: string) => void;
 };
 
+/** Jira のインライン作成に倣い、未完了の区画の末尾に置く「+ 作成」の行 */
 export function CreatePbiForm({ onCreate }: Props) {
   const [title, setTitle] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -27,8 +29,8 @@ export function CreatePbiForm({ onCreate }: Props) {
       }}
     >
       <div className={styles.row}>
-        <span className={styles.plus} aria-hidden="true">
-          +
+        <span className={styles.plus}>
+          <PlusIcon />
         </span>
         <input
           className={styles.input}
@@ -37,7 +39,7 @@ export function CreatePbiForm({ onCreate }: Props) {
             setTitle(e.target.value);
             if (error) setError(null);
           }}
-          placeholder="タイトルを入力して Enter で PBI を作成"
+          placeholder="作成"
           aria-label="新しい PBI のタイトル"
           aria-invalid={error !== null}
           aria-describedby={error ? 'create-pbi-error' : undefined}

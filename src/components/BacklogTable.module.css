@@ -1,16 +1,18 @@
+/* 区画の中の白地の表。Jira の一覧に倣い、1px の枠と小さな角丸で包む */
 .table {
   width: 100%;
-  border-collapse: collapse;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  border-spacing: 0;
+  background: var(--surface);
   table-layout: fixed;
 }
 
+/* Jira の一覧には列の見出しが無い。見出しは読み上げ用にだけ残し、列の幅の指定にだけ使う */
 .table th {
-  padding: var(--space-1) var(--space-2);
-  border-bottom: 1px solid var(--border-strong);
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  text-align: left;
+  height: 0;
+  padding: 0 !important;
+  border: 0;
 }
 
 .row td {
@@ -21,8 +23,12 @@
   vertical-align: middle;
 }
 
+.row:last-child td {
+  border-bottom: 0;
+}
+
 .row:hover td {
-  background: var(--surface-sunken);
+  background: var(--gray-50);
 }
 
 .selected td,
@@ -45,22 +51,50 @@
   padding-right: 0 !important;
 }
 
+.typeCol {
+  width: 28px;
+  padding-right: 0 !important;
+  line-height: 0;
+}
+
 .idCol {
   width: 76px;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
+  color: var(--gray-700);
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.statusCol {
-  width: 120px;
+/* 完了した PBI の ID は、Jira と同じく取り消し線で示す */
+.doneId {
+  text-decoration: line-through;
 }
 
-.pointsCol {
-  width: 48px;
+/* 行の右側（ステータス・SP・コピー）は右揃えで詰め、ステータスの長さによらず SP までの間隔を揃える */
+.statusCol {
+  width: 120px;
   text-align: right !important;
+}
+
+/* バッジは2桁が収まる幅で揃え、右揃えのままステータスとの間を 8px に揃える */
+.pointsCol {
+  width: 36px;
+  padding-left: 0 !important;
+  text-align: right !important;
+}
+
+/* SP は灰色の小さなバッジ。未設定は「-」 */
+.points {
+  display: inline-block;
+  min-width: 28px;
+  padding: 0 6px;
+  border-radius: var(--radius-control);
+  background: var(--gray-100);
+  color: var(--gray-700);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
   font-variant-numeric: tabular-nums;
 }
 
@@ -135,35 +169,100 @@
   text-decoration: underline;
 }
 
+/*
+ * 狭い画面では行を2段にし、1段目にタイトルを幅いっぱいに出す。
+ * DOM の順（ID → タイトル → …）は変えず、grid-area で並べ替えて読み上げの順を保つ。
+ */
 @media (max-width: 560px) {
-  .idCol {
-    width: 52px;
-    font-size: var(--text-xs);
+  .table,
+  .table tbody {
+    display: block;
   }
 
-  .statusCol {
-    width: 100px;
+  .table thead {
+    display: none;
   }
 
-  .pointsCol {
-    width: 32px;
+  .row {
+    display: grid;
+    /* ID の幅を固定し、2段目のステータスの開始位置を行ごとに揃える */
+    grid-template-columns: 20px 48px 1fr auto auto;
+    grid-template-areas:
+      'handle title title title title'
+      'handle id status points copy';
+    align-items: center;
+    column-gap: var(--space-2);
+    row-gap: 2px;
+    padding: 6px var(--space-2) 6px var(--space-1);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
   }
 
-  .copyCol {
-    width: 62px;
+  .row:last-child {
+    border-bottom: 0;
   }
 
-  .statusCol select {
-    padding-left: 4px;
-    padding-right: 14px;
-    background-position: right 3px center;
-    font-size: 11px;
-    letter-spacing: 0;
+  .row:hover {
+    background: var(--gray-50);
+  }
+
+  .selected,
+  .selected:hover {
+    background: var(--accent-subtle);
   }
 
   .row td,
-  .table th {
-    padding-left: var(--space-1);
-    padding-right: var(--space-1);
+  .row:hover td,
+  .selected td {
+    height: auto;
+    padding: 0 !important;
+    border-bottom: 0;
+    background: transparent;
+  }
+
+  .handleCol {
+    grid-area: handle;
+    width: auto;
+  }
+
+  /* 狭い画面ではタイトルの幅を優先し、種類のアイコンを出さない */
+  .typeCol {
+    display: none;
+  }
+
+  .idCol {
+    grid-area: id;
+    width: auto;
+    font-size: var(--text-xs);
+  }
+
+  .titleCell {
+    grid-area: title;
+  }
+
+  /* タイトルは省略せず、2行まで折り返す */
+  .title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .statusCol {
+    grid-area: status;
+    width: auto;
+    text-align: left !important;
+  }
+
+  .pointsCol {
+    grid-area: points;
+    width: auto;
+  }
+
+  .copyCol {
+    grid-area: copy;
+    width: auto;
   }
 }

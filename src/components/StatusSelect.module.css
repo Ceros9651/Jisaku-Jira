@@ -1,34 +1,30 @@
 /*
- * Jira の Lozenge に倣い、select の見た目を文字幅の小さなラベルにする。
- * 変更の手がかりの矢印は、行の hover とラベルの hover・focus のときだけ出す。
+ * Jira のステータスのボタンに倣い、select の見た目を文字幅の小さなボタンにする。
+ * 大文字にはせず、変更できることを示す下向きの矢印を常に右端に出す。
  */
 .select {
   appearance: none;
   field-sizing: content;
-  height: 22px;
-  padding: 0 18px 0 6px;
+  height: 24px;
+  padding: 0 22px 0 8px;
   border: 0;
   border-radius: var(--radius-control);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' fill='none' stroke='%23505258' stroke-width='1.4'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 5px center;
+  background-position: right 8px center;
   background-size: 8px 5px;
   font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  font-weight: 600;
   cursor: pointer;
 }
 
-tr:hover .select,
-.select:hover,
-.select:focus-visible {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' fill='none' stroke='%234a4a46' stroke-width='1.4'/%3E%3C/svg%3E");
+.select:hover {
+  filter: brightness(0.95);
 }
 
 .select option {
   background: var(--surface);
   color: var(--text);
-  text-transform: none;
 }
 
 .todo {

@@ -11,6 +11,7 @@ import {
 import type { PbiChanges } from '../backlog/reducer';
 import { ConfirmDialog } from './ConfirmDialog';
 import styles from './DetailPanel.module.css';
+import { CloseIcon, PbiTypeIcon } from './icons';
 import { StatusSelect } from './StatusSelect';
 
 type Props = {
@@ -59,12 +60,11 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
     <aside className={styles.panel} aria-labelledby="detail-heading">
       <div className={styles.header}>
         <h2 id="detail-heading" className={styles.id}>
+          <PbiTypeIcon />
           {id}
         </h2>
         <button type="button" className={styles.close} onClick={onClose} aria-label="詳細を閉じる">
-          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-            <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.5" />
-          </svg>
+          <CloseIcon />
         </button>
       </div>
 
@@ -80,10 +80,18 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
         <label className={styles.field}>
           {/* Jira の詳細表示に倣い、タイトルは見出しとして見せる。ラベルは読み上げ用にだけ残す */}
           <span className="visually-hidden">タイトル</span>
-          <input
+          {/* 長いタイトルも Jira と同じく折り返して見せるため、1行の textarea にする。Enter は改行せず保存する */}
+          <textarea
             className={styles.titleInput}
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            rows={1}
+            onChange={(e) => setTitle(e.target.value.replace(/\n/g, ''))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                e.currentTarget.form?.requestSubmit();
+              }
+            }}
             aria-invalid={errors.title !== undefined}
           />
           {errors.title && (
@@ -93,12 +101,37 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
           )}
         </label>
 
-        <div className={styles.meta}>
-          <label className={styles.field}>
-            <span className={styles.label}>ステータス</span>
-            <StatusSelect value={pbi.status} onChange={onStatusChange} label="ステータス" />
-          </label>
-          <label className={styles.field}>
+        {/* Jira と同じく、ステータスはタイトルのすぐ下に置く。ラベルは読み上げ用にだけ残す */}
+        <label className={styles.status}>
+          <span className="visually-hidden">ステータス</span>
+          <StatusSelect value={pbi.status} onChange={onStatusChange} label="ステータス" />
+        </label>
+
+        <label className={styles.field}>
+          <span className={styles.sectionHeading}>説明</span>
+          <textarea
+            className={styles.longText}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={10}
+          />
+        </label>
+
+        <label className={styles.field}>
+          <span className={styles.sectionHeading}>受入条件</span>
+          <textarea
+            className={styles.longText}
+            value={acceptanceCriteria}
+            onChange={(e) => setAcceptanceCriteria(e.target.value)}
+            rows={6}
+          />
+        </label>
+
+        <section className={styles.details} aria-labelledby="detail-details-heading">
+          <h3 id="detail-details-heading" className={styles.detailsHeading}>
+            詳細
+          </h3>
+          <label className={styles.detailRow}>
             <span className={styles.label}>ストーリーポイント</span>
             <input
               className={styles.pointsInput}
@@ -113,27 +146,7 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
               </span>
             )}
           </label>
-        </div>
-
-        <label className={styles.field}>
-          <span className={styles.label}>説明</span>
-          <textarea
-            className={styles.longText}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={10}
-          />
-        </label>
-
-        <label className={styles.field}>
-          <span className={styles.label}>受入条件</span>
-          <textarea
-            className={styles.longText}
-            value={acceptanceCriteria}
-            onChange={(e) => setAcceptanceCriteria(e.target.value)}
-            rows={6}
-          />
-        </label>
+        </section>
 
         <div className={styles.actions}>
           <button type="submit" className={styles.save} disabled={!dirty}>
