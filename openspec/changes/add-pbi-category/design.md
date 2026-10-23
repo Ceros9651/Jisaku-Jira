@@ -25,9 +25,9 @@
 ### データ: `category` を必須の項目にし、読み込み時に既定値を入れる
 
 ```ts
-type Category = 'task' | 'bug' | 'test' | 'ops';
-const CATEGORIES: readonly Category[] = ['task', 'bug', 'test', 'ops'];
-const CATEGORY_LABELS: Record<Category, string> = { task: 'タスク', bug: 'バグ', test: 'テスト', ops: '運用' };
+type Category = 'task' | 'bug' | 'test' | 'security';
+const CATEGORIES: readonly Category[] = ['task', 'bug', 'test', 'security'];
+const CATEGORY_LABELS: Record<Category, string> = { task: 'タスク', bug: 'バグ', test: 'テスト', security: 'セキュリティ' };
 const DEFAULT_CATEGORY: Category = 'task';
 type Pbi = { ...; category: Category; ... };
 ```
@@ -52,7 +52,7 @@ type Pbi = { ...; category: Category; ... };
   | タスク | `--category-task`（青） | チェックマーク |
   | バグ | `--category-bug`（赤） | 塗りつぶした丸 |
   | テスト | `--category-test`（紫） | 三角（フラスコの形） |
-  | 運用 | `--category-ops`（橙） | 横線 2 本（設定のスライダー） |
+  | セキュリティ | `--category-security`（橙） | 錠前（四角の本体と上の弧） |
 
   色は tokens.css に足し、白い記号との対比が 3:1 以上（非文字の UI 部品の基準）になる濃さにする。アクセント色・ステータスの色・エラーの赤（`--danger`）とは別の値にし、タスクの青もアクセント色と同じ値は使わない（選択中の行の `--accent-subtle` の上でも区別できるように、また「アクセント色の使い道」を増やさないため）。
 - 記号の線と端は整数ピクセルに合わせる（アプリのアイコンと同じ描き方）。
