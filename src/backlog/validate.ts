@@ -22,11 +22,16 @@ export function parseBacklogJson(text: string): ValidationResult {
   return validateBacklog(data);
 }
 
-/** version 2 を検証する。プロジェクトの無い version 1 は「マイプロジェクト」1つの version 2 に変換する */
+/**
+ * version 3 を検証する。旧形式は version 3 に変換する。
+ * version 1（プロジェクトの無い形式）は「マイプロジェクト」1つに、
+ * version 2（番号が全プロジェクトの通し番号）はプロジェクトごとの番号に振り直す。
+ */
 export function validateBacklog(data: unknown): ValidationResult {
   if (!isObject(data)) return fail('バックログのデータではありません');
   if (data.version === 1) return validateVersion1(data);
   if (data.version === 2) return validateVersion2(data);
+  if (data.version === 3) return validateVersion3(data);
   return fail(`対応していないデータ形式です（version: ${String(data.version)}）`);
 }
 
@@ -38,24 +43,61 @@ function validateVersion1(data: Record<string, unknown>): ValidationResult {
   return {
     ok: true,
     backlog: {
-      version: 2,
-      nextNumber: atLeastNext(data.nextNumber, items.map((p) => p.number)),
+      version: 3,
       nextProjectId: 2,
-      projects: [{ id: 1, name: DEFAULT_PROJECT_NAME, items }],
+      projects: [
+        { id: 1, name: DEFAULT_PROJECT_NAME, nextNumber: atLeastNext(data.nextNumber, items.map((p) => p.number)), items },
+      ],
     },
   };
 }
 
+/**
+ * 最初のプロジェクトは番号を変えず、全体の nextNumber を引き継ぐ（削除済みの番号も再利用しない）。
+ * 2つ目以降は並び順を変えずに、作成日時の古い順（同じなら元の番号の順）に 1 から振り直す。
+ * どの端末で読んでも同じ番号になるよう、入力だけで結果が決まるようにする。
+ */
 function validateVersion2(data: Record<string, unknown>): ValidationResult {
+  if (!isPositiveInteger(data.nextNumber)) return fail('nextNumber が正の整数ではありません');
+  // 通し番号なので、振り直す前に番号の重複をプロジェクトをまたいで検出する
+  const numbers = new Set<number>();
+  const parsed = validateProjects(data, () => numbers);
+  if (!parsed.ok) return parsed;
+  const nextNumber = data.nextNumber;
+  const projects = parsed.backlog.projects.map((project, index) =>
+    index === 0 ? { ...project, nextNumber: atLeastNext(nextNumber, [...numbers]) } : renumber(project),
+  );
+  return { ok: true, backlog: { ...parsed.backlog, projects } };
+}
+
+function renumber(project: Project): Project {
+  const byCreation = [...project.items].sort((a, b) =>
+    a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.number - b.number,
+  );
+  const numberOf = new Map(byCreation.map((p, index) => [p.number, index + 1]));
+  return {
+    ...project,
+    nextNumber: project.items.length + 1,
+    items: project.items.map((p) => ({ ...p, number: numberOf.get(p.number)! })),
+  };
+}
+
+function validateVersion3(data: Record<string, unknown>): ValidationResult {
+  // 番号はプロジェクトごとの連番なので、重複はプロジェクトの中だけで検出する
+  return validateProjects(data, () => new Set());
+}
+
+/**
+ * projects と nextProjectId を検証して version 3 にする。各プロジェクトの番号の重複は seenFor が返す集合で検出する。
+ * nextNumber は version 3 ならプロジェクトの値を、無ければ（version 2）最大番号＋1 を使う。
+ */
+function validateProjects(data: Record<string, unknown>, seenFor: () => Set<number>): ValidationResult {
   if (!Array.isArray(data.projects)) return fail('projects がありません');
   if (data.projects.length === 0) return fail('プロジェクトが1つもありません');
-  if (!isPositiveInteger(data.nextNumber)) return fail('nextNumber が正の整数ではありません');
   if (!isPositiveInteger(data.nextProjectId)) return fail('nextProjectId が正の整数ではありません');
 
   const projects: Project[] = [];
   const projectIds = new Set<number>();
-  // 番号の重複はプロジェクトをまたいで検出する
-  const numbers = new Set<number>();
   for (const [index, raw] of data.projects.entries()) {
     const label = `${index + 1} 番目のプロジェクト`;
     if (!isObject(raw)) return fail(`${label}がプロジェクトのデータではありません`);
@@ -64,19 +106,19 @@ function validateVersion2(data: Record<string, unknown>): ValidationResult {
     projectIds.add(raw.id);
     if (typeof raw.name !== 'string' || raw.name.trim() === '') return fail(`${label}の name が空です`);
     if (!Array.isArray(raw.items)) return fail(`${label}の items がありません`);
-    const items = validateItems(raw.items, numbers, `${label}の`);
+    if (data.version === 3 && !isPositiveInteger(raw.nextNumber)) {
+      return fail(`${label}の nextNumber が正の整数ではありません`);
+    }
+    const seen = seenFor();
+    const items = validateItems(raw.items, seen, `${label}の`);
     if (typeof items === 'string') return fail(items);
-    projects.push({ id: raw.id, name: raw.name.trim(), items });
+    const nextNumber = atLeastNext(isPositiveInteger(raw.nextNumber) ? raw.nextNumber : 1, items.map((p) => p.number));
+    projects.push({ id: raw.id, name: raw.name.trim(), nextNumber, items });
   }
 
   return {
     ok: true,
-    backlog: {
-      version: 2,
-      nextNumber: atLeastNext(data.nextNumber, [...numbers]),
-      nextProjectId: atLeastNext(data.nextProjectId, [...projectIds]),
-      projects,
-    },
+    backlog: { version: 3, nextProjectId: atLeastNext(data.nextProjectId, [...projectIds]), projects },
   };
 }
 
@@ -91,6 +133,9 @@ function validateItems(rawItems: unknown[], seen: Set<number>, prefix: string): 
     seen.add(raw.number);
     if (typeof raw.title !== 'string' || raw.title.trim() === '') return `${label}の title が空です`;
     if (typeof raw.description !== 'string') return `${label}の description が文字列ではありません`;
+    // 受入条件はあとから足した項目なので、無ければ空として読む
+    const acceptanceCriteria = raw.acceptanceCriteria === undefined ? '' : raw.acceptanceCriteria;
+    if (typeof acceptanceCriteria !== 'string') return `${label}の acceptanceCriteria が文字列ではありません`;
     // カテゴリを持たない以前のデータはタスクとして読む
     const category = raw.category === undefined ? DEFAULT_CATEGORY : raw.category;
     if (!isCategory(category)) return `${label}の category が不正です`;
@@ -103,6 +148,7 @@ function validateItems(rawItems: unknown[], seen: Set<number>, prefix: string): 
       number: raw.number,
       title: raw.title.trim(),
       description: raw.description,
+      acceptanceCriteria,
       category,
       status: raw.status,
       storyPoints: raw.storyPoints,

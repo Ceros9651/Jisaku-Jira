@@ -5,17 +5,15 @@ import styles from './ProjectNameForm.module.css';
 type Props = {
   label: string;
   initialName?: string;
-  /** 見出しの位置で使うときは大きな文字にする */
-  size?: 'tab' | 'heading';
   onSubmit: (name: string) => void;
   onCancel: () => void;
 };
 
 /**
- * プロジェクト名の入力欄。Enter で確定、Escape で取り消す。
+ * 見出しの位置に出すプロジェクト名の入力欄。Enter で確定、Escape で取り消す。
  * focus を外したときは、空なら取り消し、入力があれば確定する。
  */
-export function ProjectNameForm({ label, initialName = '', size = 'tab', onSubmit, onCancel }: Props) {
+export function ProjectNameForm({ label, initialName = '', onSubmit, onCancel }: Props) {
   const [name, setName] = useState(initialName);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -45,7 +43,7 @@ export function ProjectNameForm({ label, initialName = '', size = 'tab', onSubmi
 
   return (
     <form
-      className={size === 'heading' ? styles.heading : styles.tab}
+      className={styles.form}
       noValidate
       onSubmit={(e) => {
         e.preventDefault();

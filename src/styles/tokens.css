@@ -1,27 +1,27 @@
-/* デザイントークン。ルールは docs/design-principles.md を参照 */
+/* デザイントークン。値は Atlassian のデザイントークンに寄せる。ルールは docs/design-principles.md を参照 */
 :root {
   /* 無彩色の段階 */
   --gray-0: #ffffff;
-  --gray-50: #f7f7f6;
-  --gray-100: #efefed;
-  --gray-200: #e1e1de;
-  --gray-300: #c9c9c5;
-  --gray-500: #82827d;
-  --gray-700: #4a4a46;
-  --gray-900: #1e1e1c;
+  --gray-50: #f8f8f8;
+  --gray-100: #ebecf0;
+  --gray-200: #dddee1;
+  --gray-300: #b7b9be;
+  --gray-500: #6b6e76;
+  --gray-700: #505258;
+  --gray-900: #292a2e;
 
   /* アクセント（主ボタン・選択・フォーカス・リンクだけ） */
-  --accent: #1f5fbf;
-  --accent-hover: #194f9f;
-  --accent-subtle: #e9f0fb;
+  --accent: #1868db;
+  --accent-hover: #1558bc;
+  --accent-subtle: #e9f2fe;
 
   /* ステータス表示（Lozenge の文字と薄い背景。組み合わせのコントラスト比は 4.5:1 以上） */
   --status-todo: var(--gray-700);
-  --status-todo-bg: #e8e8e5;
-  --status-progress: #1f5fbf;
-  --status-progress-bg: #dbe7f9;
-  --status-done: #2a6e37;
-  --status-done-bg: #dcefe0;
+  --status-todo-bg: #dddee1;
+  --status-progress: #1558bc;
+  --status-progress-bg: #cfe1fd;
+  --status-done: #216e4e;
+  --status-done-bg: #baf3db;
 
   /*
    * カテゴリのアイコンの地（アイコンの中だけ）。白い記号との対比は 3:1 以上、選択中の行の背景との対比も 3:1 以上。
@@ -53,17 +53,22 @@
   --space-5: 24px;
   --space-6: 32px;
 
-  /* 文字 */
-  --font-sans: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif;
+  /* 文字。欧文・数字は Inter（index.html で読み込む）、和文はシステムフォント */
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif;
   --font-mono: ui-monospace, 'SFMono-Regular', Consolas, monospace;
   --text-xs: 12px;
   --text-sm: 13px;
   --text-md: 14px;
   --text-lg: 18px;
+  --text-xl: 24px;
+
+  /* 上部ナビゲーションの高さ。詳細パネルはこの下に貼り付ける */
+  --topnav-height: 48px;
 
   /* 角丸 */
   --radius-control: 4px;
   --radius-panel: 6px;
+  --radius-section: 8px;
 
   /* 影（上に重なるものだけ） */
   --shadow-overlay: 0 8px 24px rgb(0 0 0 / 0.16);

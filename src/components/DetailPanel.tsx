@@ -10,9 +10,11 @@ import {
   parseStoryPointsInput,
 } from '../backlog/model';
 import type { PbiChanges } from '../backlog/reducer';
+import { CategoryIcon } from './CategoryIcon';
 import { CategorySelect } from './CategorySelect';
 import { ConfirmDialog } from './ConfirmDialog';
 import styles from './DetailPanel.module.css';
+import { CloseIcon } from './icons';
 import { StatusSelect } from './StatusSelect';
 
 type Props = {
@@ -25,11 +27,12 @@ type Props = {
 
 type Errors = { title?: string; storyPoints?: string };
 
-/** 呼び出し側で `key={pbi.number}` を付け、PBI を切り替えたら下書きを捨てる */
+/** 呼び出し側で `key` にプロジェクトの id と番号を付け、PBI を切り替えたら下書きを捨てる */
 export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: Props) {
   const id = formatPbiId(pbi.number);
   const [title, setTitle] = useState(pbi.title);
   const [description, setDescription] = useState(pbi.description);
+  const [acceptanceCriteria, setAcceptanceCriteria] = useState(pbi.acceptanceCriteria);
   const [category, setCategory] = useState<Category>(pbi.category);
   const [storyPoints, setStoryPoints] = useState(pbi.storyPoints === null ? '' : String(pbi.storyPoints));
   const [errors, setErrors] = useState<Errors>({});
@@ -39,6 +42,7 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
   const dirty =
     title !== pbi.title ||
     description !== pbi.description ||
+    acceptanceCriteria !== pbi.acceptanceCriteria ||
     category !== pbi.category ||
     storyPoints !== (pbi.storyPoints === null ? '' : String(pbi.storyPoints));
 
@@ -51,7 +55,7 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
     setErrors(nextErrors);
     if (normalizedTitle === null || parsedPoints === undefined) return;
 
-    onSave({ title: normalizedTitle, description, category, storyPoints: parsedPoints });
+    onSave({ title: normalizedTitle, description, acceptanceCriteria, category, storyPoints: parsedPoints });
     setTitle(normalizedTitle);
     setStoryPoints(parsedPoints === null ? '' : String(parsedPoints));
     setSaved(true);
@@ -61,12 +65,12 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
     <aside className={styles.panel} aria-labelledby="detail-heading">
       <div className={styles.header}>
         <h2 id="detail-heading" className={styles.id}>
+          {/* 見出しの読み上げは ID だけにする。カテゴリは下の「カテゴリ」の選択で読む */}
+          <CategoryIcon category={pbi.category} ariaHidden />
           {id}
         </h2>
         <button type="button" className={styles.close} onClick={onClose} aria-label="詳細を閉じる">
-          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-            <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.5" />
-          </svg>
+          <CloseIcon />
         </button>
       </div>
 
@@ -82,10 +86,18 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
         <label className={styles.field}>
           {/* Jira の詳細表示に倣い、タイトルは見出しとして見せる。ラベルは読み上げ用にだけ残す */}
           <span className="visually-hidden">タイトル</span>
-          <input
+          {/* 長いタイトルも Jira と同じく折り返して見せるため、1行の textarea にする。Enter は改行せず保存する */}
+          <textarea
             className={styles.titleInput}
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            rows={1}
+            onChange={(e) => setTitle(e.target.value.replace(/\n/g, ''))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                e.currentTarget.form?.requestSubmit();
+              }
+            }}
             aria-invalid={errors.title !== undefined}
           />
           {errors.title && (
@@ -95,16 +107,41 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
           )}
         </label>
 
-        <div className={styles.meta}>
-          <label className={styles.field}>
+        {/* Jira と同じく、ステータスはタイトルのすぐ下に置く。ラベルは読み上げ用にだけ残す */}
+        <label className={styles.status}>
+          <span className="visually-hidden">ステータス</span>
+          <StatusSelect value={pbi.status} onChange={onStatusChange} label="ステータス" />
+        </label>
+
+        <label className={styles.field}>
+          <span className={styles.sectionHeading}>説明</span>
+          <textarea
+            className={styles.longText}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={10}
+          />
+        </label>
+
+        <label className={styles.field}>
+          <span className={styles.sectionHeading}>受入条件</span>
+          <textarea
+            className={styles.longText}
+            value={acceptanceCriteria}
+            onChange={(e) => setAcceptanceCriteria(e.target.value)}
+            rows={6}
+          />
+        </label>
+
+        <section className={styles.details} aria-labelledby="detail-details-heading">
+          <h3 id="detail-details-heading" className={styles.detailsHeading}>
+            詳細
+          </h3>
+          <label className={styles.detailRow}>
             <span className={styles.label}>カテゴリ</span>
             <CategorySelect value={category} onChange={setCategory} label="カテゴリ" />
           </label>
-          <label className={styles.field}>
-            <span className={styles.label}>ステータス</span>
-            <StatusSelect value={pbi.status} onChange={onStatusChange} label="ステータス" />
-          </label>
-          <label className={styles.field}>
+          <label className={styles.detailRow}>
             <span className={styles.label}>ストーリーポイント</span>
             <input
               className={styles.pointsInput}
@@ -119,17 +156,7 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
               </span>
             )}
           </label>
-        </div>
-
-        <label className={styles.field}>
-          <span className={styles.label}>説明</span>
-          <textarea
-            className={styles.description}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={10}
-          />
-        </label>
+        </section>
 
         <div className={styles.actions}>
           <button type="submit" className={styles.save} disabled={!dirty}>

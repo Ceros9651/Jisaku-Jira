@@ -33,23 +33,22 @@ test('以前のデータのプロジェクト・内容・順序・nextNumber を
   let backlog = backlogReducer(emptyBacklog(), { type: 'createProject', name: 'Tool' });
   for (const title of ['a', 'b', 'c']) backlog = backlogReducer(backlog, { type: 'create', projectId: 1, title, now });
   backlog = backlogReducer(backlog, { type: 'create', projectId: 2, title: 'd', now });
-  backlog = backlogReducer(backlog, { type: 'delete', number: 3 });
-  backlog = backlogReducer(backlog, { type: 'move', number: 2, toIndex: 0 });
+  backlog = backlogReducer(backlog, { type: 'delete', projectId: 1, number: 3 });
+  backlog = backlogReducer(backlog, { type: 'move', projectId: 1, number: 2, toIndex: 0 });
   localStorage.setItem(LEGACY_STORAGE_KEY, serializeBacklog(backlog));
 
   expect(loadLegacyBacklog(localStorage)).toEqual({ kind: 'loaded', backlog });
-  expect(backlog.nextNumber).toBe(5);
+  expect(backlog.projects.map((p) => p.nextNumber)).toEqual([4, 2]);
 });
 
-test('旧形式（version 1）の以前のデータは「マイプロジェクト」1つの version 2 として読み込む', () => {
+test('旧形式（version 1）の以前のデータは「マイプロジェクト」1つの version 3 として読み込む', () => {
   localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify({ version: 1, nextNumber: 4, items: [pbi(1), pbi(2)] }));
   expect(loadLegacyBacklog(localStorage)).toEqual({
     kind: 'loaded',
     backlog: {
-      version: 2,
-      nextNumber: 4,
+      version: 3,
       nextProjectId: 2,
-      projects: [{ id: 1, name: 'マイプロジェクト', items: [pbi(1), pbi(2)] }],
+      projects: [{ id: 1, name: 'マイプロジェクト', nextNumber: 4, items: [pbi(1), pbi(2)] }],
     },
   });
 });

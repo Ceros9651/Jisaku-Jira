@@ -33,6 +33,7 @@ describe('PBI の作成', () => {
       number: 2,
       title: 'ログイン画面を作る',
       description: '',
+      acceptanceCriteria: '',
       category: 'task',
       status: 'todo',
       storyPoints: null,
@@ -83,20 +84,39 @@ describe('PBI の ID 採番', () => {
   });
 
   test('削除した番号は欠番になる', () => {
-    const backlog = run([create('a'), create('b'), create('c'), { type: 'delete', number: 3 }, create('d')]);
+    const backlog = run([create('a'), create('b'), create('c'), { type: 'delete', projectId: 1, number: 3 }, create('d')]);
     expect(ids(backlog)).toEqual(['PBI-1', 'PBI-2', 'PBI-4']);
   });
 
   test('並べ替えても ID は変わらない', () => {
-    const backlog = run([create('a'), create('b'), create('c'), { type: 'move', number: 2, toIndex: 0 }]);
+    const backlog = run([create('a'), create('b'), create('c'), { type: 'move', projectId: 1, number: 2, toIndex: 0 }]);
     expect(ids(backlog)).toEqual(['PBI-2', 'PBI-1', 'PBI-3']);
     expect(items(backlog).map((p) => p.title)).toEqual(['b', 'a', 'c']);
   });
 
-  test('プロジェクトをまたいで通し番号になる', () => {
+  test('プロジェクトごとに 1 から振る', () => {
     const backlog = run([create('a', 1), create('b', 1), create('c', 2)], twoProjects());
     expect(ids(backlog, 1)).toEqual(['PBI-1', 'PBI-2']);
-    expect(ids(backlog, 2)).toEqual(['PBI-3']);
+    expect(ids(backlog, 2)).toEqual(['PBI-1']);
+  });
+
+  test('他のプロジェクトの作成は番号に影響しない', () => {
+    const start = run([create('a', 1), create('b', 1), create('c', 2)], twoProjects());
+    const backlog = run([create('d', 1), create('e', 2)], start);
+    expect(ids(backlog, 1)).toEqual(['PBI-1', 'PBI-2', 'PBI-3']);
+    expect(ids(backlog, 2)).toEqual(['PBI-1', 'PBI-2']);
+  });
+
+  test('新しく作ったプロジェクトも 1 から', () => {
+    const backlog = run([create('a', 1), create('b', 1), { type: 'createProject', name: 'Docs' }, create('c', 2)]);
+    expect(backlog.projects[1].nextNumber).toBe(2);
+    expect(ids(backlog, 2)).toEqual(['PBI-1']);
+  });
+
+  test('別のプロジェクトで削除した番号は欠番にならない', () => {
+    const start = run([create('a', 1), create('b', 2), create('c', 2)], twoProjects());
+    const backlog = run([{ type: 'delete', projectId: 2, number: 2 }, create('d', 1)], start);
+    expect(ids(backlog, 1)).toEqual(['PBI-1', 'PBI-2']);
   });
 });
 
@@ -106,6 +126,7 @@ describe('PBI の更新', () => {
   test('タイトルと説明を変更しても ID と位置は変わらない', () => {
     const backlog = backlogReducer(base, {
       type: 'update',
+      projectId: 1,
       number: 2,
       changes: { title: '新しいタイトル', description: '説明' },
       now: later,
@@ -114,46 +135,68 @@ describe('PBI の更新', () => {
     expect(items(backlog)[1]).toMatchObject({ title: '新しいタイトル', description: '説明', updatedAt: later });
   });
 
+  test('受入条件だけを変更すると、他の項目は変わらず updatedAt が進む', () => {
+    const acceptanceCriteria = '- ログインできる\n- 誤ったパスワードではエラーが出る';
+    const backlog = backlogReducer(base, {
+      type: 'update',
+      projectId: 1,
+      number: 2,
+      changes: { acceptanceCriteria },
+      now: later,
+    });
+    expect(items(backlog)[1]).toEqual({ ...items(base)[1], acceptanceCriteria, updatedAt: later });
+  });
+
   test('タイトルを空にする変更は保存しない', () => {
-    expect(backlogReducer(base, { type: 'update', number: 2, changes: { title: ' ' }, now: later })).toBe(base);
+    expect(backlogReducer(base, { type: 'update', projectId: 1, number: 2, changes: { title: ' ' }, now: later })).toBe(base);
   });
 
   test('カテゴリだけを変更しても ID と位置は変わらない', () => {
-    const backlog = backlogReducer(base, { type: 'update', number: 2, changes: { category: 'security' }, now: later });
+    const backlog = backlogReducer(base, {
+      type: 'update',
+      projectId: 1,
+      number: 2,
+      changes: { category: 'security' },
+      now: later,
+    });
     expect(ids(backlog)).toEqual(['PBI-1', 'PBI-2', 'PBI-3']);
     expect(items(backlog)[1]).toMatchObject({ title: 'b', category: 'security' });
   });
 
   test('不正なカテゴリへの変更は保存しない', () => {
     const changes = { category: 'epic' } as unknown as PbiChanges;
-    expect(backlogReducer(base, { type: 'update', number: 2, changes, now: later })).toBe(base);
+    expect(backlogReducer(base, { type: 'update', projectId: 1, number: 2, changes, now: later })).toBe(base);
   });
 
   test('ステータスを In Progress に変更できる', () => {
-    const backlog = backlogReducer(base, { type: 'update', number: 1, changes: { status: 'in_progress' }, now });
+    const backlog = backlogReducer(base, { type: 'update', projectId: 1, number: 1, changes: { status: 'in_progress' }, now });
     expect(items(backlog)[0].status).toBe('in_progress');
   });
 
   test('ストーリーポイントを 5 にしてから未設定に戻せる', () => {
-    const set = backlogReducer(base, { type: 'update', number: 1, changes: { storyPoints: 5 }, now });
+    const set = backlogReducer(base, { type: 'update', projectId: 1, number: 1, changes: { storyPoints: 5 }, now });
     expect(items(set)[0].storyPoints).toBe(5);
-    const cleared = backlogReducer(set, { type: 'update', number: 1, changes: { storyPoints: null }, now });
+    const cleared = backlogReducer(set, { type: 'update', projectId: 1, number: 1, changes: { storyPoints: null }, now });
     expect(items(cleared)[0].storyPoints).toBeNull();
   });
 
   test.each([-1, 2.5, Number.NaN])('不正なストーリーポイント %s は保存しない', (storyPoints) => {
-    expect(backlogReducer(base, { type: 'update', number: 1, changes: { storyPoints }, now })).toBe(base);
+    expect(backlogReducer(base, { type: 'update', projectId: 1, number: 1, changes: { storyPoints }, now })).toBe(base);
   });
 
   test('存在しない番号の更新は無視する', () => {
-    expect(backlogReducer(base, { type: 'update', number: 99, changes: { title: 'x' }, now })).toBe(base);
+    expect(backlogReducer(base, { type: 'update', projectId: 1, number: 99, changes: { title: 'x' }, now })).toBe(base);
   });
 
-  test('別のプロジェクトの PBI も番号で更新できる', () => {
+  test('2つのプロジェクトに同じ番号があっても、指定したプロジェクトの PBI だけを更新する', () => {
     const start = run([create('a', 1), create('b', 2)], twoProjects());
-    const backlog = backlogReducer(start, { type: 'update', number: 2, changes: { status: 'done' }, now });
+    const backlog = backlogReducer(start, { type: 'update', projectId: 2, number: 1, changes: { status: 'done' }, now });
     expect(items(backlog, 2)[0].status).toBe('done');
     expect(items(backlog, 1)).toBe(items(start, 1));
+  });
+
+  test('無いプロジェクトの id の更新は無視する', () => {
+    expect(backlogReducer(base, { type: 'update', projectId: 99, number: 1, changes: { title: 'x' }, now })).toBe(base);
   });
 });
 
@@ -178,21 +221,28 @@ describe('PBI の削除', () => {
       create('a'),
       create('b'),
       create('c'),
-      { type: 'move', number: 3, toIndex: 0 },
-      { type: 'delete', number: 1 },
+      { type: 'move', projectId: 1, number: 3, toIndex: 0 },
+      { type: 'delete', projectId: 1, number: 1 },
     ]);
     expect(ids(backlog)).toEqual(['PBI-3', 'PBI-2']);
-    expect(backlog.nextNumber).toBe(4);
+    expect(backlog.projects[0].nextNumber).toBe(4);
   });
 
   test('最後の PBI を削除しても番号は再利用しない', () => {
-    const backlog = run([create('a'), { type: 'delete', number: 1 }, create('b')]);
+    const backlog = run([create('a'), { type: 'delete', projectId: 1, number: 1 }, create('b')]);
     expect(ids(backlog)).toEqual(['PBI-2']);
   });
 
   test('存在しない番号の削除は無視する', () => {
     const start = run([create('a')]);
-    expect(backlogReducer(start, { type: 'delete', number: 99 })).toBe(start);
+    expect(backlogReducer(start, { type: 'delete', projectId: 1, number: 99 })).toBe(start);
+  });
+
+  test('2つのプロジェクトに同じ番号があっても、指定したプロジェクトの PBI だけを削除する', () => {
+    const start = run([create('a', 1), create('b', 2)], twoProjects());
+    const backlog = backlogReducer(start, { type: 'delete', projectId: 1, number: 1 });
+    expect(ids(backlog, 1)).toEqual([]);
+    expect(items(backlog, 2)).toBe(items(start, 2));
   });
 });
 
@@ -200,22 +250,43 @@ describe('PBI の移動', () => {
   const base = run([create('a'), create('b'), create('c')]);
 
   test('PBI-3 を先頭へ移すと 3, 1, 2 になる', () => {
-    expect(ids(backlogReducer(base, { type: 'move', number: 3, toIndex: 0 }))).toEqual(['PBI-3', 'PBI-1', 'PBI-2']);
+    expect(ids(backlogReducer(base, { type: 'move', projectId: 1, number: 3, toIndex: 0 }))).toEqual(['PBI-3', 'PBI-1', 'PBI-2']);
   });
 
   test('PBI-1 を1つ下へ移すと直後と入れ替わる', () => {
-    expect(ids(backlogReducer(base, { type: 'move', number: 1, toIndex: 1 }))).toEqual(['PBI-2', 'PBI-1', 'PBI-3']);
+    expect(ids(backlogReducer(base, { type: 'move', projectId: 1, number: 1, toIndex: 1 }))).toEqual(['PBI-2', 'PBI-1', 'PBI-3']);
   });
 
   test('範囲外の位置は端に丸める', () => {
-    expect(ids(backlogReducer(base, { type: 'move', number: 1, toIndex: 10 }))).toEqual(['PBI-2', 'PBI-3', 'PBI-1']);
+    expect(ids(backlogReducer(base, { type: 'move', projectId: 1, number: 1, toIndex: 10 }))).toEqual(['PBI-2', 'PBI-3', 'PBI-1']);
   });
 
   test('移動はそのプロジェクトの中だけで、他のプロジェクトの順序は変わらない', () => {
     const start = run([create('a', 1), create('b', 1), create('c', 2), create('d', 2)], twoProjects());
-    const backlog = backlogReducer(start, { type: 'move', number: 4, toIndex: 0 });
-    expect(ids(backlog, 2)).toEqual(['PBI-4', 'PBI-3']);
-    expect(ids(backlog, 1)).toEqual(['PBI-1', 'PBI-2']);
+    const backlog = backlogReducer(start, { type: 'move', projectId: 2, number: 2, toIndex: 0 });
+    expect(items(backlog, 2).map((p) => p.title)).toEqual(['d', 'c']);
+    expect(items(backlog, 1)).toBe(items(start, 1));
+  });
+
+  // 未完了の一覧からは、ドロップ先の PBI の全体の位置を toIndex に渡す
+  describe('間に Done の PBI があるとき（全体 1, 2(Done), 3）', () => {
+    const withDone = backlogReducer(base, { type: 'update', projectId: 1, number: 2, changes: { status: 'done' }, now });
+
+    test('3 を 1 の位置へ移すと 3, 1, 2 になる', () => {
+      expect(ids(backlogReducer(withDone, { type: 'move', projectId: 1, number: 3, toIndex: 0 }))).toEqual([
+        'PBI-3',
+        'PBI-1',
+        'PBI-2',
+      ]);
+    });
+
+    test('1 を 3 の位置へ移すと 2, 3, 1 になり、未完了どうしは 3, 1 の順になる', () => {
+      expect(ids(backlogReducer(withDone, { type: 'move', projectId: 1, number: 1, toIndex: 2 }))).toEqual([
+        'PBI-2',
+        'PBI-3',
+        'PBI-1',
+      ]);
+    });
   });
 });
 
@@ -255,12 +326,10 @@ describe('プロジェクト', () => {
     expect(ids(backlog, 1)).toEqual(['PBI-1']);
   });
 
-  test('削除したプロジェクトの PBI 番号も再利用しない', () => {
-    const backlog = run(
-      [create('a', 2), create('b', 2), { type: 'deleteProject', id: 2 }, create('c', 1)],
-      twoProjects(),
-    );
-    expect(ids(backlog, 1)).toEqual(['PBI-3']);
+  test('削除したプロジェクトは他のプロジェクトの番号に影響しない', () => {
+    const start = run([create('a', 1), create('b', 1), ...['c', 'd', 'e', 'f'].map((t) => create(t, 2))], twoProjects());
+    const backlog = run([{ type: 'deleteProject', id: 2 }, create('g', 1)], start);
+    expect(ids(backlog, 1)).toEqual(['PBI-1', 'PBI-2', 'PBI-3']);
   });
 
   test('削除したプロジェクトの id も再利用しない', () => {

@@ -7,6 +7,7 @@ type Props = {
   onCreate: (title: string, category: Category) => void;
 };
 
+/** Jira のインライン作成に倣い、未完了の区画の末尾に置く「+ 作成」の行 */
 export function CreatePbiForm({ onCreate }: Props) {
   const [title, setTitle] = useState('');
   // 同じ種類を続けて入力しやすいよう、作成後も直前に選んだカテゴリを残す
@@ -38,7 +39,7 @@ export function CreatePbiForm({ onCreate }: Props) {
             setTitle(e.target.value);
             if (error) setError(null);
           }}
-          placeholder="タイトルを入力して Enter で PBI を作成"
+          placeholder="作成"
           aria-label="新しい PBI のタイトル"
           aria-invalid={error !== null}
           aria-describedby={error ? 'create-pbi-error' : undefined}

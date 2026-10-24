@@ -17,7 +17,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useEffect, useRef, useState } from 'react';
+import { type CSSProperties, type ReactNode, type Ref, useEffect, useRef, useState } from 'react';
 import { type Pbi, type Status, formatPbiId } from '../backlog/model';
 import { formatPbiMarkdown, pbiUrl } from '../backlog/share';
 import styles from './BacklogTable.module.css';
@@ -25,15 +25,99 @@ import { CategoryIcon } from './CategoryIcon';
 import { StatusSelect } from './StatusSelect';
 
 type Props = {
+  /** items が属するプロジェクト。コピーするリンクに使う */
+  projectId: number;
   items: Pbi[];
   selected: number | null;
   onSelect: (number: number) => void;
   onStatusChange: (number: number, status: Status) => void;
-  onMove: (number: number, toIndex: number) => void;
+  /** 並べ替えできる表のときに使う。移動先は、ドロップした位置にある PBI の番号 */
+  onMove?: (number: number, overNumber: number) => void;
+  /** false のときは並べ替えの持ち手を出さず、ドラッグでもキーボードでも動かさない */
+  sortable?: boolean;
+  /** 表の名前。labelledBy があればそちらを使う */
+  label?: string;
+  labelledBy?: string;
 };
 
-export function BacklogTable({ items, selected, onSelect, onStatusChange, onMove }: Props) {
+export function BacklogTable({
+  projectId,
+  items,
+  selected,
+  onSelect,
+  onStatusChange,
+  onMove,
+  sortable = true,
+  label,
+  labelledBy,
+}: Props) {
   const [copyMessage, setCopyMessage] = useState('');
+  const Row = sortable ? SortableRow : StaticRow;
+
+  const table = (
+    <>
+      <table className={styles.table} aria-label={labelledBy ? undefined : label} aria-labelledby={labelledBy}>
+        <thead>
+          <tr>
+            <th className={styles.handleCol}>
+              <span className="visually-hidden">並べ替え</span>
+            </th>
+            <th className={styles.typeCol}>
+              <span className="visually-hidden">カテゴリ</span>
+            </th>
+            <th className={styles.idCol}>
+              <span className="visually-hidden">ID</span>
+            </th>
+            <th>
+              <span className="visually-hidden">タイトル</span>
+            </th>
+            <th className={styles.statusCol}>
+              <span className="visually-hidden">ステータス</span>
+            </th>
+            <th className={styles.pointsCol}>
+              <span className="visually-hidden">SP</span>
+            </th>
+            <th className={styles.copyCol}>
+              <span className="visually-hidden">コピー</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((pbi) => (
+            <Row
+              key={pbi.number}
+              projectId={projectId}
+              pbi={pbi}
+              selected={pbi.number === selected}
+              onSelect={onSelect}
+              onStatusChange={onStatusChange}
+              onCopyResult={setCopyMessage}
+            />
+          ))}
+        </tbody>
+      </table>
+      <p role="status" className="visually-hidden">
+        {copyMessage}
+      </p>
+    </>
+  );
+
+  return sortable ? (
+    <SortableList items={items} onMove={onMove}>
+      {table}
+    </SortableList>
+  ) : (
+    table
+  );
+}
+
+type SortableListProps = {
+  items: Pbi[];
+  onMove?: (number: number, overNumber: number) => void;
+  children: ReactNode;
+};
+
+function SortableList({ items, onMove, children }: SortableListProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -56,8 +140,7 @@ export function BacklogTable({ items, selected, onSelect, onStatusChange, onMove
 
   function handleDragEnd({ active, over }: DragEndEvent) {
     if (!over || active.id === over.id) return;
-    const toIndex = items.findIndex((p) => p.number === Number(over.id));
-    if (toIndex !== -1) onMove(Number(active.id), toIndex);
+    onMove?.(Number(active.id), Number(over.id));
   }
 
   return (
@@ -68,47 +151,15 @@ export function BacklogTable({ items, selected, onSelect, onStatusChange, onMove
       onDragEnd={handleDragEnd}
       accessibility={{ announcements, screenReaderInstructions }}
     >
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th className={styles.handleCol}>
-              <span className="visually-hidden">並べ替え</span>
-            </th>
-            <th className={styles.categoryCol}>
-              <span className="visually-hidden">カテゴリ</span>
-            </th>
-            <th className={styles.idCol}>ID</th>
-            <th>タイトル</th>
-            <th className={styles.statusCol}>ステータス</th>
-            <th className={styles.pointsCol}>SP</th>
-            <th className={styles.copyCol}>
-              <span className="visually-hidden">コピー</span>
-            </th>
-          </tr>
-        </thead>
-        <SortableContext items={items.map((p) => p.number)} strategy={verticalListSortingStrategy}>
-          <tbody>
-            {items.map((pbi) => (
-              <Row
-                key={pbi.number}
-                pbi={pbi}
-                selected={pbi.number === selected}
-                onSelect={onSelect}
-                onStatusChange={onStatusChange}
-                onCopyResult={setCopyMessage}
-              />
-            ))}
-          </tbody>
-        </SortableContext>
-      </table>
-      <p role="status" className="visually-hidden">
-        {copyMessage}
-      </p>
+      <SortableContext items={items.map((p) => p.number)} strategy={verticalListSortingStrategy}>
+        {children}
+      </SortableContext>
     </DndContext>
   );
 }
 
 type RowProps = {
+  projectId: number;
   pbi: Pbi;
   selected: boolean;
   onSelect: (number: number) => void;
@@ -116,56 +167,23 @@ type RowProps = {
   onCopyResult: (message: string) => void;
 };
 
-type CopyState = 'idle' | 'copied' | 'failed';
-
-const COPY_LABELS: Record<CopyState, string> = {
-  idle: 'コピー',
-  copied: 'コピー済み',
-  failed: 'コピー失敗',
-};
-
-/** 結果の表示を元に戻すまでの時間 */
-const COPY_RESET_MS = 2000;
-
-function Row({ pbi, selected, onSelect, onStatusChange, onCopyResult }: RowProps) {
+function SortableRow(props: RowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
-    id: pbi.number,
+    id: props.pbi.number,
   });
-  const id = formatPbiId(pbi.number);
-  const [copyState, setCopyState] = useState<CopyState>('idle');
-  const resetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  useEffect(() => () => clearTimeout(resetTimer.current), []);
-
-  async function copy() {
-    let ok = false;
-    try {
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(formatPbiMarkdown(pbi, pbiUrl(pbi.number, window.location)));
-        ok = true;
-      }
-    } catch {
-      ok = false;
-    }
-    setCopyState(ok ? 'copied' : 'failed');
-    onCopyResult(ok ? `${id} をコピーしました` : `${id} をコピーできませんでした`);
-    clearTimeout(resetTimer.current);
-    resetTimer.current = setTimeout(() => setCopyState('idle'), COPY_RESET_MS);
-  }
 
   return (
-    <tr
-      ref={setNodeRef}
+    <RowCells
+      {...props}
+      rowRef={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={[styles.row, selected && styles.selected, isDragging && styles.dragging].filter(Boolean).join(' ')}
-      aria-selected={selected}
-    >
-      <td className={styles.handleCol}>
+      dragging={isDragging}
+      handle={
         <button
           type="button"
           ref={setActivatorNodeRef}
           className={styles.handle}
-          aria-label={`${id} を並べ替え`}
+          aria-label={`${formatPbiId(props.pbi.number)} を並べ替え`}
           {...attributes}
           {...listeners}
         >
@@ -180,11 +198,80 @@ function Row({ pbi, selected, onSelect, onStatusChange, onCopyResult }: RowProps
             </g>
           </svg>
         </button>
-      </td>
-      <td className={styles.categoryCol}>
+      }
+    />
+  );
+}
+
+/** 並べ替えない表の行。持ち手の列は空のまま残し、並べ替えできる表と列の幅を揃える */
+function StaticRow(props: RowProps) {
+  return <RowCells {...props} />;
+}
+
+type CopyState = 'idle' | 'copied' | 'failed';
+
+const COPY_LABELS: Record<CopyState, string> = {
+  idle: 'コピー',
+  copied: 'コピー済み',
+  failed: 'コピー失敗',
+};
+
+/** 結果の表示を元に戻すまでの時間 */
+const COPY_RESET_MS = 2000;
+
+type RowCellsProps = RowProps & {
+  rowRef?: Ref<HTMLTableRowElement>;
+  style?: CSSProperties;
+  dragging?: boolean;
+  handle?: ReactNode;
+};
+
+function RowCells({
+  projectId,
+  pbi,
+  selected,
+  onSelect,
+  onStatusChange,
+  onCopyResult,
+  rowRef,
+  style,
+  dragging = false,
+  handle,
+}: RowCellsProps) {
+  const id = formatPbiId(pbi.number);
+  const [copyState, setCopyState] = useState<CopyState>('idle');
+  const resetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => () => clearTimeout(resetTimer.current), []);
+
+  async function copy() {
+    let ok = false;
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(formatPbiMarkdown(pbi, pbiUrl({ projectId, number: pbi.number }, window.location)));
+        ok = true;
+      }
+    } catch {
+      ok = false;
+    }
+    setCopyState(ok ? 'copied' : 'failed');
+    onCopyResult(ok ? `${id} をコピーしました` : `${id} をコピーできませんでした`);
+    clearTimeout(resetTimer.current);
+    resetTimer.current = setTimeout(() => setCopyState('idle'), COPY_RESET_MS);
+  }
+
+  return (
+    <tr
+      ref={rowRef}
+      style={style}
+      className={[styles.row, selected && styles.selected, dragging && styles.dragging].filter(Boolean).join(' ')}
+      aria-selected={selected}
+    >
+      <td className={styles.handleCol}>{handle}</td>
+      <td className={styles.typeCol}>
         <CategoryIcon category={pbi.category} />
       </td>
-      <td className={styles.idCol}>{id}</td>
+      <td className={[styles.idCol, pbi.status === 'done' && styles.doneId].filter(Boolean).join(' ')}>{id}</td>
       <td className={styles.titleCell}>
         <button type="button" className={styles.title} onClick={() => onSelect(pbi.number)}>
           {pbi.title}
@@ -197,7 +284,16 @@ function Row({ pbi, selected, onSelect, onStatusChange, onCopyResult }: RowProps
           label={`${id} のステータス`}
         />
       </td>
-      <td className={styles.pointsCol}>{pbi.storyPoints ?? ''}</td>
+      <td className={styles.pointsCol}>
+        {pbi.storyPoints === null ? (
+          <span className={styles.points}>
+            <span aria-hidden="true">-</span>
+            <span className="visually-hidden">未設定</span>
+          </span>
+        ) : (
+          <span className={styles.points}>{pbi.storyPoints}</span>
+        )}
+      </td>
       <td className={styles.copyCol}>
         <button type="button" className={styles.copy} aria-label={`${id} をコピー`} onClick={() => void copy()}>
           {COPY_LABELS[copyState]}

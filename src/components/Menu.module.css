@@ -1,0 +1,106 @@
+.root {
+  position: relative;
+  display: inline-flex;
+}
+
+/* 見出しの横の、枠の無い四角いアイコンのボタン */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--gray-700);
+  cursor: pointer;
+}
+
+.button:hover,
+.button[aria-expanded='true'] {
+  background: var(--gray-100);
+  color: var(--text);
+}
+
+/* 上に重なるものなので影を付ける */
+.menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: 5;
+  min-width: 200px;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: var(--space-1) 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  box-shadow: var(--shadow-overlay);
+}
+
+.alignEnd {
+  right: 0;
+  left: auto;
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 6px var(--space-3);
+  border: 0;
+  background: none;
+  font-size: var(--text-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.item:hover,
+.item:focus-visible {
+  background: var(--gray-100);
+}
+
+.item:focus-visible {
+  outline-offset: -2px;
+}
+
+.item[aria-checked='true'] {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.item[aria-disabled='true'] {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.item[aria-disabled='true']:hover {
+  background: none;
+}
+
+.check {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  width: 12px;
+  height: 21px;
+}
+
+.label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.note {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.separator {
+  margin: var(--space-1) 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}

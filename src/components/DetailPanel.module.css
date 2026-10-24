@@ -1,10 +1,26 @@
+/*
+ * Jira の詳細パネルに倣い、画面の右端に貼り付けた全高のパネルにする。
+ * 箱で包まず、左の罫線だけで一覧と区切り、中が長いときはパネルの中だけをスクロールする。
+ */
 .panel {
   position: sticky;
-  top: var(--space-4);
-  padding: var(--space-4) var(--space-5) var(--space-5);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-panel);
+  top: var(--topnav-height);
+  height: calc(100vh - var(--topnav-height));
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-5) 0;
+  border-left: 1px solid var(--border);
   background: var(--surface);
+}
+
+@media (max-width: 760px) {
+  .panel {
+    position: static;
+    height: auto;
+    overflow: visible;
+    padding-bottom: var(--space-6);
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
 }
 
 .header {
@@ -15,9 +31,11 @@
 }
 
 .id {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0;
   color: var(--gray-700);
-  font-family: var(--font-mono);
   font-size: var(--text-sm);
   font-weight: 400;
   font-variant-numeric: tabular-nums;
@@ -27,41 +45,47 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 0;
   border-radius: var(--radius-control);
   background: transparent;
-  color: var(--gray-500);
+  color: var(--gray-700);
   cursor: pointer;
 }
 
 .close:hover {
-  background: var(--surface-sunken);
+  background: var(--gray-100);
   color: var(--text);
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
+}
+
+/* 「説明」「受入条件」の小見出し */
+.sectionHeading {
+  font-size: var(--text-md);
+  font-weight: 600;
 }
 
 .label {
-  color: var(--text-muted);
-  font-size: var(--text-xs);
+  color: var(--gray-700);
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
 .pointsInput,
-.description {
+.longText {
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
@@ -75,13 +99,16 @@
   border: 1px solid transparent;
   border-radius: var(--radius-control);
   background: transparent;
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   font-weight: 700;
-  line-height: 1.4;
+  line-height: 1.3;
+  field-sizing: content;
+  resize: none;
+  overflow-wrap: anywhere;
 }
 
 .titleInput:hover {
-  background: var(--surface-sunken);
+  background: var(--gray-50);
 }
 
 .titleInput:focus {
@@ -93,23 +120,36 @@
   border-color: var(--danger);
 }
 
-/* ステータスと SP は、ラベル左・値右の行で並べる */
-.meta {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+/* タイトルのすぐ下。見出しとの間を詰める */
+.status {
+  margin-top: calc(-1 * var(--space-3));
 }
 
-.meta .field {
+/* 「詳細」の小見出しの区画。項目はラベル左・値右の行で並べる */
+.details {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+}
+
+.detailsHeading {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.detailRow {
   display: grid;
-  grid-template-columns: 96px auto;
+  grid-template-columns: 136px auto;
   align-items: center;
   justify-items: start;
   column-gap: var(--space-3);
   row-gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
 }
 
-.meta .error {
+.detailRow .error {
   grid-column: 2;
 }
 
@@ -119,7 +159,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.description {
+/* 説明と受入条件の複数行の欄 */
+.longText {
   resize: vertical;
   line-height: 1.6;
 }
@@ -129,10 +170,18 @@
   font-size: var(--text-sm);
 }
 
+/* 保存と削除はパネルの下端に貼り付け、どこまでスクロールしても届くようにする。重なるものではないので影ではなく罫線で区切る */
 .actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  margin: 0 calc(-1 * var(--space-5));
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .save {
@@ -151,9 +200,9 @@
 }
 
 .save:disabled {
-  border-color: var(--border-strong);
-  background: var(--surface-sunken);
-  color: var(--text-muted);
+  border-color: var(--border);
+  background: var(--gray-100);
+  color: var(--gray-500);
   cursor: default;
 }
 
@@ -175,4 +224,14 @@
 
 .delete:hover {
   background: var(--danger-subtle);
+}
+
+/* 一覧の下に流れて置くときは、操作の行も流れの中に置く */
+@media (max-width: 760px) {
+  .actions {
+    position: static;
+    margin: 0;
+    padding: 0;
+    border-top: 0;
+  }
 }
