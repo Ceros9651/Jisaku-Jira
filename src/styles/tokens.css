@@ -23,6 +23,15 @@
   --status-done: #2a6e37;
   --status-done-bg: #dcefe0;
 
+  /*
+   * カテゴリのアイコンの地（アイコンの中だけ）。白い記号との対比は 3:1 以上、選択中の行の背景との対比も 3:1 以上。
+   * アクセント・ステータス・エラーの赤とは別の値にする
+   */
+  --category-task: #3b7ddd; /* 白と 4.07:1 */
+  --category-bug: #db4b37; /* 白と 4.14:1 */
+  --category-test: #8a55d4; /* 白と 4.85:1 */
+  --category-security: #c4600f; /* 白と 4.18:1 */
+
   /* 警告・エラー */
   --danger: #b42318;
   --danger-subtle: #fdeceb;

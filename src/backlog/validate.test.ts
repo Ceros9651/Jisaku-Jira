@@ -1,5 +1,5 @@
-import { pbi } from '../test/backlog';
-import type { Backlog } from './model';
+import { backlogOf, pbi } from '../test/backlog';
+import type { Backlog, Pbi } from './model';
 import { parseBacklogJson, validateBacklog } from './validate';
 
 function sample(): Backlog {
@@ -90,6 +90,36 @@ test.each<[string, (b: Data) => unknown]>([
   ['number が 0', (b) => withItem(b, { number: 0 })],
 ])('%s データは拒否する', (_, mutate) => {
   expect(validateBacklog(mutate(sample() as unknown as Data)).ok).toBe(false);
+});
+
+describe('カテゴリ', () => {
+  const withoutCategory = (p: Pbi): Data => {
+    const { category: _, ...rest } = p;
+    return rest;
+  };
+
+  test('カテゴリ付きの version 2 はそのまま読む', () => {
+    const backlog = backlogOf(['Web', [pbi(1, { category: 'bug' }), pbi(2, { category: 'security' })]]);
+    expect(validateBacklog(backlog)).toEqual({ ok: true, backlog });
+  });
+
+  test('カテゴリの無い version 2 の PBI はタスクになる', () => {
+    const data = withProject(sample() as unknown as Data, 1, { items: [withoutCategory(pbi(2))] });
+    const result = validateBacklog(data);
+    expect(result.ok && result.backlog.projects[1].items[0].category).toBe('task');
+  });
+
+  test('version 1 の PBI はタスクになる', () => {
+    const result = validateBacklog({ ...version1(), items: [withoutCategory(pbi(2)), withoutCategory(pbi(1))] });
+    expect(result.ok && result.backlog.projects[0].items.map((p) => p.category)).toEqual(['task', 'task']);
+  });
+
+  test('不正なカテゴリは理由を示して拒否する', () => {
+    expect(validateBacklog(withItem(sample() as unknown as Data, { category: 'epic' }))).toEqual({
+      ok: false,
+      reason: '1 番目のプロジェクトの1 件目の category が不正です',
+    });
+  });
 });
 
 test('プロジェクトをまたぐ番号の重複は理由に番号を示す', () => {

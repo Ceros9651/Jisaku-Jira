@@ -21,6 +21,7 @@ import { useEffect, useRef, useState } from 'react';
 import { type Pbi, type Status, formatPbiId } from '../backlog/model';
 import { formatPbiMarkdown, pbiUrl } from '../backlog/share';
 import styles from './BacklogTable.module.css';
+import { CategoryIcon } from './CategoryIcon';
 import { StatusSelect } from './StatusSelect';
 
 type Props = {
@@ -72,6 +73,9 @@ export function BacklogTable({ items, selected, onSelect, onStatusChange, onMove
           <tr>
             <th className={styles.handleCol}>
               <span className="visually-hidden">並べ替え</span>
+            </th>
+            <th className={styles.categoryCol}>
+              <span className="visually-hidden">カテゴリ</span>
             </th>
             <th className={styles.idCol}>ID</th>
             <th>タイトル</th>
@@ -176,6 +180,9 @@ function Row({ pbi, selected, onSelect, onStatusChange, onCopyResult }: RowProps
             </g>
           </svg>
         </button>
+      </td>
+      <td className={styles.categoryCol}>
+        <CategoryIcon category={pbi.category} />
       </td>
       <td className={styles.idCol}>{id}</td>
       <td className={styles.titleCell}>

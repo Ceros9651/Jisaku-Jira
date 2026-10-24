@@ -1,8 +1,14 @@
+import { pbi } from '../test/backlog';
 import { FakeRemote } from '../test/remote';
-import { emptyBacklog } from './model';
+import { type Backlog, type Pbi, emptyBacklog } from './model';
 import { MAX_OPS, type RemoteSnapshot, appendOp } from './remote';
 
 const now = '2026-10-12T00:00:00.000Z';
+
+function withoutCategory(p: Pbi): Omit<Pbi, 'category'> {
+  const { category: _, ...rest } = p;
+  return rest;
+}
 
 test('片方の apply がもう片方の購読者に届く', async () => {
   const remote = new FakeRemote();
@@ -36,6 +42,23 @@ test('読めない JSON でも replace（空で始める・インポート）は
   const remote = new FakeRemote('{ broken');
   await remote.apply({ type: 'replace', backlog: emptyBacklog() }, 'op-1');
   expect(remote.backlog()).toEqual(emptyBacklog());
+});
+
+test('カテゴリの無い共有データへの作成で、既存の PBI はタスク、新しい PBI は指定のカテゴリで書き戻される', async () => {
+  const legacy = {
+    version: 2,
+    nextNumber: 2,
+    nextProjectId: 2,
+    projects: [{ id: 1, name: 'Web', items: [withoutCategory(pbi(1))] }],
+  };
+  const remote = new FakeRemote(JSON.stringify(legacy));
+  await remote.apply({ type: 'create', projectId: 1, title: 'テストを書く', category: 'test', now }, 'op-1');
+
+  const written = JSON.parse(remote.text ?? '') as Backlog;
+  expect(written.projects[0].items.map((p) => [p.number, p.category])).toEqual([
+    [1, 'task'],
+    [2, 'test'],
+  ]);
 });
 
 test('ops は直近 MAX_OPS 件だけ残す', () => {

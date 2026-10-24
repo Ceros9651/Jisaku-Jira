@@ -1,14 +1,17 @@
 import {
   type Backlog,
+  type Category,
+  DEFAULT_CATEGORY,
   type Pbi,
   type Project,
   type Status,
+  isCategory,
   isStatus,
   isValidStoryPoints,
   normalizeTitle,
 } from './model';
 
-export type PbiChanges = Partial<Pick<Pbi, 'title' | 'description' | 'status' | 'storyPoints'>>;
+export type PbiChanges = Partial<Pick<Pbi, 'title' | 'description' | 'category' | 'status' | 'storyPoints'>>;
 
 export type BacklogAction =
   | {
@@ -16,6 +19,7 @@ export type BacklogAction =
       projectId: number;
       title: string;
       description?: string;
+      category?: Category;
       storyPoints?: number | null;
       now: string;
     }
@@ -28,7 +32,7 @@ export type BacklogAction =
   | { type: 'replace'; backlog: Backlog };
 
 /**
- * 不正な操作（空タイトル・空の名前、不正なストーリーポイント、存在しない番号や id、最後のプロジェクトの削除）は
+ * 不正な操作（空タイトル・空の名前、不正なカテゴリ・ストーリーポイント、存在しない番号や id、最後のプロジェクトの削除）は
  * 無視して元の状態を返す。利用者へのエラー表示は呼び出し側で model の検証関数を使って行う。
  * PBI の番号は全プロジェクトで一意なので、PBI の操作は番号だけで指す。
  */
@@ -36,13 +40,15 @@ export function backlogReducer(state: Backlog, action: BacklogAction): Backlog {
   switch (action.type) {
     case 'create': {
       const title = normalizeTitle(action.title);
+      const category = action.category ?? DEFAULT_CATEGORY;
       const storyPoints = action.storyPoints ?? null;
-      if (title === null || !isValidStoryPoints(storyPoints)) return state;
+      if (title === null || !isCategory(category) || !isValidStoryPoints(storyPoints)) return state;
       if (!state.projects.some((p) => p.id === action.projectId)) return state;
       const pbi: Pbi = {
         number: state.nextNumber,
         title,
         description: action.description ?? '',
+        category,
         status: 'todo',
         storyPoints,
         createdAt: action.now,
@@ -123,6 +129,10 @@ function applyChanges(pbi: Pbi, changes: PbiChanges, now: string): Pbi | null {
     next.title = title;
   }
   if (changes.description !== undefined) next.description = changes.description;
+  if (changes.category !== undefined) {
+    if (!isCategory(changes.category)) return null;
+    next.category = changes.category;
+  }
   if (changes.status !== undefined) {
     if (!isStatus(changes.status)) return null;
     next.status = changes.status satisfies Status;

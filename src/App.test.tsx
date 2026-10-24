@@ -9,7 +9,7 @@ import { FakeRemote } from './test/remote';
 const now = '2026-10-12T00:00:00.000Z';
 
 function pbi(number: number, title: string, storyPoints: number | null = null): Pbi {
-  return { number, title, description: '', status: 'todo', storyPoints, createdAt: now, updatedAt: now };
+  return { number, title, description: '', category: 'task', status: 'todo', storyPoints, createdAt: now, updatedAt: now };
 }
 
 /** 「マイプロジェクト」1つに PBI を入れて保存する */
@@ -33,7 +33,7 @@ function rowTexts(): string[] {
   return screen
     .getAllByRole('row')
     .slice(1)
-    .map((row) => within(row).getAllByRole('cell')[1].textContent ?? '');
+    .map((row) => within(row).getAllByRole('cell')[2].textContent ?? '');
 }
 
 /** 共有データに保存された内容 */
@@ -56,8 +56,18 @@ describe('一覧', () => {
     const first = screen.getAllByRole('row')[1];
     expect(within(first).getByRole('button', { name: 'b' })).toBeInTheDocument();
     expect(within(first).getByRole('combobox', { name: 'PBI-2 のステータス' })).toHaveValue('todo');
-    expect(within(first).getAllByRole('cell')[4]).toHaveTextContent('3');
+    expect(within(first).getAllByRole('cell')[5]).toHaveTextContent('3');
     expect(screen.getByTestId('backlog-summary')).toHaveTextContent('3 件8 pt');
+  });
+
+  test('行の ID の左にカテゴリのアイコンを出す', () => {
+    seed([pbi(1, 'a'), { ...pbi(2, 'b'), category: 'bug' }]);
+    renderApp(remote);
+    const [, first, second] = screen.getAllByRole('row');
+    expect(within(first).getByRole('img', { name: 'タスク' })).toBeInTheDocument();
+    const icon = within(second).getByRole('img', { name: 'バグ' });
+    const idCell = within(second).getByRole('cell', { name: 'PBI-2' });
+    expect(icon.compareDocumentPosition(idCell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   test('見出しにステータス別の SP を出す', () => {
@@ -91,6 +101,29 @@ describe('作成', () => {
     expect(rowTexts()).toEqual(['PBI-1', 'PBI-3', 'PBI-4']);
     expect(screen.getByRole('button', { name: 'ログイン画面を作る' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: '新しい PBI のタイトル' })).toHaveValue('');
+  });
+
+  test('カテゴリを変えずに作るとタスクになる', async () => {
+    const user = userEvent.setup();
+    renderApp(remote);
+    await user.type(screen.getByRole('textbox', { name: '新しい PBI のタイトル' }), 'ログイン画面を作る{Enter}');
+    expect(within(screen.getAllByRole('row')[1]).getByRole('img', { name: 'タスク' })).toBeInTheDocument();
+    expect(storedItems()[0].category).toBe('task');
+  });
+
+  test('カテゴリをバグにして作るとバグのアイコンが出て、続けて作ってもバグのまま', async () => {
+    const user = userEvent.setup();
+    renderApp(remote);
+    const category = screen.getByRole('combobox', { name: '新しい PBI のカテゴリ' });
+    const title = screen.getByRole('textbox', { name: '新しい PBI のタイトル' });
+    await user.selectOptions(category, 'バグ');
+    await user.type(title, '保存に失敗する{Enter}');
+    expect(within(screen.getAllByRole('row')[1]).getByRole('img', { name: 'バグ' })).toBeInTheDocument();
+
+    expect(category).toHaveValue('bug');
+    await user.type(title, '一覧が崩れる{Enter}');
+    expect(within(screen.getAllByRole('row')[2]).getByRole('img', { name: 'バグ' })).toBeInTheDocument();
+    expect(storedItems().map((p) => p.category)).toEqual(['bug', 'bug']);
   });
 
   test('空タイトルではエラーを表示して作成しない', async () => {
@@ -187,6 +220,37 @@ describe('詳細パネル', () => {
     expect(storedItems()[0]).toMatchObject({ title: 'a', storyPoints: null });
   });
 
+  test('カテゴリをセキュリティにして保存すると一覧のアイコンが変わり、ID と位置は変わらない', async () => {
+    const user = userEvent.setup();
+    seed([pbi(1, 'a'), pbi(2, 'b'), pbi(3, 'c')]);
+    window.history.replaceState(null, '', '/#PBI-2');
+    renderApp(remote);
+    const panel = screen.getByRole('complementary');
+    await user.selectOptions(within(panel).getByRole('combobox', { name: 'カテゴリ' }), 'セキュリティ');
+    await user.click(within(panel).getByRole('button', { name: '保存' }));
+
+    expect(rowTexts()).toEqual(['PBI-1', 'PBI-2', 'PBI-3']);
+    expect(within(screen.getAllByRole('row')[2]).getByRole('img', { name: 'セキュリティ' })).toBeInTheDocument();
+    expect(storedItems()[1]).toMatchObject({ number: 2, category: 'security' });
+  });
+
+  test('カテゴリを変えて保存せずに別の PBI に切り替えると、カテゴリは変わらない', async () => {
+    const user = userEvent.setup();
+    seed([pbi(1, 'a'), pbi(2, 'b')]);
+    window.history.replaceState(null, '', '/#PBI-2');
+    renderApp(remote);
+    await user.selectOptions(
+      within(screen.getByRole('complementary')).getByRole('combobox', { name: 'カテゴリ' }),
+      'バグ',
+    );
+    await user.click(screen.getByRole('button', { name: 'a' }));
+
+    expect(within(screen.getAllByRole('row')[2]).getByRole('img', { name: 'タスク' })).toBeInTheDocument();
+    expect(storedItems()[1].category).toBe('task');
+    await user.click(screen.getByRole('button', { name: 'b' }));
+    expect(within(screen.getByRole('complementary')).getByRole('combobox', { name: 'カテゴリ' })).toHaveValue('task');
+  });
+
   test('詳細からステータスを変更できる', async () => {
     const user = userEvent.setup();
     seed([pbi(1, 'a')]);
@@ -215,6 +279,7 @@ describe('コピー', () => {
         '## PBI-3 ログイン画面を作る',
         '',
         `- リンク: ${window.location.origin}/Jisaku-Jira/#PBI-3`,
+        '- カテゴリ: タスク',
         '- ステータス: In Progress',
         '- ストーリーポイント: 5',
         '',

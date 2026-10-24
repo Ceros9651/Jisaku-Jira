@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  type Category,
   type Pbi,
   STORY_POINTS_INVALID,
   type Status,
@@ -9,6 +10,7 @@ import {
   parseStoryPointsInput,
 } from '../backlog/model';
 import type { PbiChanges } from '../backlog/reducer';
+import { CategorySelect } from './CategorySelect';
 import { ConfirmDialog } from './ConfirmDialog';
 import styles from './DetailPanel.module.css';
 import { StatusSelect } from './StatusSelect';
@@ -28,6 +30,7 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
   const id = formatPbiId(pbi.number);
   const [title, setTitle] = useState(pbi.title);
   const [description, setDescription] = useState(pbi.description);
+  const [category, setCategory] = useState<Category>(pbi.category);
   const [storyPoints, setStoryPoints] = useState(pbi.storyPoints === null ? '' : String(pbi.storyPoints));
   const [errors, setErrors] = useState<Errors>({});
   const [saved, setSaved] = useState(false);
@@ -36,6 +39,7 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
   const dirty =
     title !== pbi.title ||
     description !== pbi.description ||
+    category !== pbi.category ||
     storyPoints !== (pbi.storyPoints === null ? '' : String(pbi.storyPoints));
 
   function save() {
@@ -47,7 +51,7 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
     setErrors(nextErrors);
     if (normalizedTitle === null || parsedPoints === undefined) return;
 
-    onSave({ title: normalizedTitle, description, storyPoints: parsedPoints });
+    onSave({ title: normalizedTitle, description, category, storyPoints: parsedPoints });
     setTitle(normalizedTitle);
     setStoryPoints(parsedPoints === null ? '' : String(parsedPoints));
     setSaved(true);
@@ -92,6 +96,10 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
         </label>
 
         <div className={styles.meta}>
+          <label className={styles.field}>
+            <span className={styles.label}>カテゴリ</span>
+            <CategorySelect value={category} onChange={setCategory} label="カテゴリ" />
+          </label>
           <label className={styles.field}>
             <span className={styles.label}>ステータス</span>
             <StatusSelect value={pbi.status} onChange={onStatusChange} label="ステータス" />

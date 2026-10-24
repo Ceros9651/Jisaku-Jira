@@ -8,11 +8,26 @@ export const STATUS_LABELS: Record<Status, string> = {
   done: 'Done',
 };
 
+export type Category = 'task' | 'bug' | 'test' | 'security';
+
+export const CATEGORIES: readonly Category[] = ['task', 'bug', 'test', 'security'];
+
+export const CATEGORY_LABELS: Record<Category, string> = {
+  task: 'タスク',
+  bug: 'バグ',
+  test: 'テスト',
+  security: 'セキュリティ',
+};
+
+/** カテゴリを指定しない作成と、カテゴリを持たない以前のデータの読み込みに使う */
+export const DEFAULT_CATEGORY: Category = 'task';
+
 export type Pbi = {
   /** 表示 ID は `PBI-${number}` */
   number: number;
   title: string;
   description: string;
+  category: Category;
   status: Status;
   storyPoints: number | null;
   /** ISO 8601 */
@@ -69,6 +84,10 @@ export function parsePbiId(id: string): number | null {
 
 export function isStatus(value: unknown): value is Status {
   return typeof value === 'string' && (STATUSES as readonly string[]).includes(value);
+}
+
+export function isCategory(value: unknown): value is Category {
+  return typeof value === 'string' && (CATEGORIES as readonly string[]).includes(value);
 }
 
 export function isValidStoryPoints(value: unknown): value is number | null {

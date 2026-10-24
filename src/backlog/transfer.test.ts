@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { pbi } from '../test/backlog';
+import { pbi, singleProject } from '../test/backlog';
 import { emptyBacklog, formatPbiId } from './model';
 import { backlogReducer } from './reducer';
 import { serializeBacklog } from './storage';
@@ -18,6 +18,12 @@ test('エクスポートした内容を読み込むと、全プロジェクト�
   backlog = backlogReducer(backlog, { type: 'create', projectId: 1, title: 'a', now });
   backlog = backlogReducer(backlog, { type: 'create', projectId: 2, title: 'b', now });
   expect(await readBacklogFile(file(serializeBacklog(backlog)))).toEqual({ ok: true, backlog });
+});
+
+test('エクスポートして読み直してもカテゴリが保たれる', async () => {
+  const backlog = singleProject([pbi(1, { category: 'bug' }), pbi(2, { category: 'security' })]);
+  const result = await readBacklogFile(file(serializeBacklog(backlog)));
+  expect(result.ok && result.backlog.projects[0].items.map((p) => p.category)).toEqual(['bug', 'security']);
 });
 
 test('インポート後の採番はファイルの nextNumber から続く', async () => {

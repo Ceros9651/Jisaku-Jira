@@ -1,4 +1,4 @@
-import { type Pbi, STATUS_LABELS, formatPbiId } from './model';
+import { CATEGORY_LABELS, type Pbi, STATUS_LABELS, formatPbiId } from './model';
 
 /** PBI を開くリンク。クエリと既存のハッシュは捨てる */
 export function pbiUrl(number: number, location: Pick<Location, 'origin' | 'pathname'>): string {
@@ -12,6 +12,7 @@ export function formatPbiMarkdown(pbi: Pbi, url: string): string {
     `## ${formatPbiId(pbi.number)} ${pbi.title}`,
     '',
     `- リンク: ${url}`,
+    `- カテゴリ: ${CATEGORY_LABELS[pbi.category]}`,
     `- ステータス: ${STATUS_LABELS[pbi.status]}`,
     `- ストーリーポイント: ${pbi.storyPoints ?? '未設定'}`,
     '',

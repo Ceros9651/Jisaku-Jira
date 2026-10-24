@@ -45,8 +45,16 @@
   padding-right: 0 !important;
 }
 
+/* アイコンと ID を1つのまとまりに見せるため、アイコンの右の 8px を ID の左の余白の代わりにする */
+.categoryCol {
+  width: 24px;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
 .idCol {
-  width: 76px;
+  width: 68px;
+  padding-left: 0 !important;
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
@@ -136,8 +144,12 @@
 }
 
 @media (max-width: 560px) {
+  .categoryCol {
+    width: 20px;
+  }
+
   .idCol {
-    width: 52px;
+    width: 48px;
     font-size: var(--text-xs);
   }
 

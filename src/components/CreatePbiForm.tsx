@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import { TITLE_REQUIRED, normalizeTitle } from '../backlog/model';
+import { type Category, DEFAULT_CATEGORY, TITLE_REQUIRED, normalizeTitle } from '../backlog/model';
+import { CategorySelect } from './CategorySelect';
 import styles from './CreatePbiForm.module.css';
 
 type Props = {
-  onCreate: (title: string) => void;
+  onCreate: (title: string, category: Category) => void;
 };
 
 export function CreatePbiForm({ onCreate }: Props) {
   const [title, setTitle] = useState('');
+  // 同じ種類を続けて入力しやすいよう、作成後も直前に選んだカテゴリを残す
+  const [category, setCategory] = useState<Category>(DEFAULT_CATEGORY);
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -21,15 +24,13 @@ export function CreatePbiForm({ onCreate }: Props) {
           setError(TITLE_REQUIRED);
           return;
         }
-        onCreate(normalized);
+        onCreate(normalized, category);
         setTitle('');
         setError(null);
       }}
     >
       <div className={styles.row}>
-        <span className={styles.plus} aria-hidden="true">
-          +
-        </span>
+        <CategorySelect value={category} onChange={setCategory} label="新しい PBI のカテゴリ" />
         <input
           className={styles.input}
           value={title}
