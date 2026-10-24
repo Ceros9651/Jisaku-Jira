@@ -1,4 +1,13 @@
-import { type Backlog, DEFAULT_PROJECT_NAME, type Pbi, type Project, isStatus, isValidStoryPoints } from './model';
+import {
+  type Backlog,
+  DEFAULT_CATEGORY,
+  DEFAULT_PROJECT_NAME,
+  type Pbi,
+  type Project,
+  isCategory,
+  isStatus,
+  isValidStoryPoints,
+} from './model';
 
 export type ValidationResult = { ok: true; backlog: Backlog } | { ok: false; reason: string };
 
@@ -127,6 +136,9 @@ function validateItems(rawItems: unknown[], seen: Set<number>, prefix: string): 
     // 受入条件はあとから足した項目なので、無ければ空として読む
     const acceptanceCriteria = raw.acceptanceCriteria === undefined ? '' : raw.acceptanceCriteria;
     if (typeof acceptanceCriteria !== 'string') return `${label}の acceptanceCriteria が文字列ではありません`;
+    // カテゴリを持たない以前のデータはタスクとして読む
+    const category = raw.category === undefined ? DEFAULT_CATEGORY : raw.category;
+    if (!isCategory(category)) return `${label}の category が不正です`;
     if (!isStatus(raw.status)) return `${label}の status が不正です`;
     if (!isValidStoryPoints(raw.storyPoints)) return `${label}の storyPoints が不正です`;
     if (typeof raw.createdAt !== 'string' || typeof raw.updatedAt !== 'string') {
@@ -137,6 +149,7 @@ function validateItems(rawItems: unknown[], seen: Set<number>, prefix: string): 
       title: raw.title.trim(),
       description: raw.description,
       acceptanceCriteria,
+      category,
       status: raw.status,
       storyPoints: raw.storyPoints,
       createdAt: raw.createdAt,

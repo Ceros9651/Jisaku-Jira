@@ -1,0 +1,30 @@
+.wrap {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* 枠の無い文字だけの select。変更の手がかりの矢印は hover・focus のときだけ出す */
+.select {
+  appearance: none;
+  field-sizing: content;
+  height: 22px;
+  padding: 0 14px 0 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent no-repeat right 2px center / 8px 5px;
+  color: var(--text);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.select:hover,
+.select:focus-visible {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' fill='none' stroke='%234a4a46' stroke-width='1.4'/%3E%3C/svg%3E");
+}
+
+.select option {
+  background: var(--surface);
+  color: var(--text);
+}

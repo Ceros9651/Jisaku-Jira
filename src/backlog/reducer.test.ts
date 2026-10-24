@@ -1,5 +1,5 @@
 import { type Backlog, emptyBacklog, formatPbiId, parseStoryPointsInput } from './model';
-import { type BacklogAction, backlogReducer } from './reducer';
+import { type BacklogAction, type PbiChanges, backlogReducer } from './reducer';
 
 const now = '2026-10-12T00:00:00.000Z';
 const later = '2026-10-13T00:00:00.000Z';
@@ -34,6 +34,7 @@ describe('PBI の作成', () => {
       title: 'ログイン画面を作る',
       description: '',
       acceptanceCriteria: '',
+      category: 'task',
       status: 'todo',
       storyPoints: null,
       createdAt: now,
@@ -59,6 +60,17 @@ describe('PBI の作成', () => {
   test('無いプロジェクトへの作成は無視する', () => {
     const start = emptyBacklog();
     expect(backlogReducer(start, create('a', 99))).toBe(start);
+  });
+
+  test('カテゴリを指定して作成できる', () => {
+    const backlog = run([{ type: 'create', projectId: 1, title: '保存に失敗する', category: 'bug', now }]);
+    expect(items(backlog)[0].category).toBe('bug');
+  });
+
+  test('不正なカテゴリの作成は無視する', () => {
+    const start = emptyBacklog();
+    const action = { type: 'create', projectId: 1, title: 'a', category: 'epic', now } as unknown as BacklogAction;
+    expect(backlogReducer(start, action)).toBe(start);
   });
 });
 
@@ -137,6 +149,23 @@ describe('PBI の更新', () => {
 
   test('タイトルを空にする変更は保存しない', () => {
     expect(backlogReducer(base, { type: 'update', projectId: 1, number: 2, changes: { title: ' ' }, now: later })).toBe(base);
+  });
+
+  test('カテゴリだけを変更しても ID と位置は変わらない', () => {
+    const backlog = backlogReducer(base, {
+      type: 'update',
+      projectId: 1,
+      number: 2,
+      changes: { category: 'security' },
+      now: later,
+    });
+    expect(ids(backlog)).toEqual(['PBI-1', 'PBI-2', 'PBI-3']);
+    expect(items(backlog)[1]).toMatchObject({ title: 'b', category: 'security' });
+  });
+
+  test('不正なカテゴリへの変更は保存しない', () => {
+    const changes = { category: 'epic' } as unknown as PbiChanges;
+    expect(backlogReducer(base, { type: 'update', projectId: 1, number: 2, changes, now: later })).toBe(base);
   });
 
   test('ステータスを In Progress に変更できる', () => {

@@ -348,7 +348,9 @@ export function App({ remote, storage: storageProp }: Props) {
               )}
 
               <CreatePbiForm
-                onCreate={(title) => dispatch({ type: 'create', projectId: project.id, title, now: now() })}
+                onCreate={(title, category) =>
+                  dispatch({ type: 'create', projectId: project.id, title, category, now: now() })
+                }
               />
             </section>
 

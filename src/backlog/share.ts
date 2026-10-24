@@ -1,4 +1,4 @@
-import { type Pbi, type PbiRef, STATUS_LABELS, formatPbiId } from './model';
+import { CATEGORY_LABELS, type Pbi, type PbiRef, STATUS_LABELS, formatPbiId } from './model';
 
 /** PBI を指す URL ハッシュ（`#` を除く）。番号はプロジェクトごとなので、プロジェクトの id を含める */
 export function pbiHash(ref: PbiRef): string {
@@ -18,6 +18,7 @@ export function formatPbiMarkdown(pbi: Pbi, url: string): string {
     `## ${formatPbiId(pbi.number)} ${pbi.title}`,
     '',
     `- リンク: ${url}`,
+    `- カテゴリ: ${CATEGORY_LABELS[pbi.category]}`,
     `- ステータス: ${STATUS_LABELS[pbi.status]}`,
     `- ストーリーポイント: ${pbi.storyPoints ?? '未設定'}`,
     '',

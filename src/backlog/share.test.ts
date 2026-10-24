@@ -9,6 +9,7 @@ function pbi(overrides: Partial<Pbi>): Pbi {
     title: 't',
     description: '',
     acceptanceCriteria: '',
+    category: 'task',
     status: 'todo',
     storyPoints: null,
     createdAt: now,
@@ -43,6 +44,7 @@ describe('formatPbiMarkdown', () => {
         '## PBI-3 ログイン画面を作る',
         '',
         '- リンク: https://ceros9651.github.io/Jisaku-Jira/#1/PBI-3',
+        '- カテゴリ: タスク',
         '- ステータス: In Progress',
         '- ストーリーポイント: 5',
         '',
@@ -57,6 +59,11 @@ describe('formatPbiMarkdown', () => {
         '',
       ].join('\n'),
     );
+  });
+
+  test('カテゴリがバグなら、リンクの行の次に「- カテゴリ: バグ」の行が入る', () => {
+    const markdown = formatPbiMarkdown(pbi({ number: 4, category: 'bug' }), 'u');
+    expect(markdown).toContain('- リンク: u\n- カテゴリ: バグ\n');
   });
 
   test('SP 未設定は「未設定」、空白だけの説明と空の受入条件は「（なし）」', () => {

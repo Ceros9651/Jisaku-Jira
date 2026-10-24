@@ -191,10 +191,10 @@
      * ID の幅を固定し、2段目のステータスの開始位置を行ごとに揃える。
      * ステータス・SP・コピーは中身なりの幅で左から詰め、余りは最後の列に回して、間隔をステータスによらず 8px にする
      */
-    grid-template-columns: 20px 48px auto auto auto 1fr;
+    grid-template-columns: 20px 16px 48px auto auto auto 1fr;
     grid-template-areas:
-      'handle title title title title title'
-      'handle id status points copy .';
+      'handle title title title title title title'
+      'handle type id status points copy .';
     align-items: center;
     column-gap: var(--space-2);
     row-gap: 2px;
@@ -230,9 +230,10 @@
     width: auto;
   }
 
-  /* 狭い画面ではタイトルの幅を優先し、種類のアイコンを出さない */
+  /* カテゴリのアイコンは2段目の ID の前に置き、1段目のタイトルの幅は削らない */
   .typeCol {
-    display: none;
+    grid-area: type;
+    width: auto;
   }
 
   .idCol {

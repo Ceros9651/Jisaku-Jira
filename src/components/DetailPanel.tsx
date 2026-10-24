@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  type Category,
   type Pbi,
   STORY_POINTS_INVALID,
   type Status,
@@ -9,9 +10,11 @@ import {
   parseStoryPointsInput,
 } from '../backlog/model';
 import type { PbiChanges } from '../backlog/reducer';
+import { CategoryIcon } from './CategoryIcon';
+import { CategorySelect } from './CategorySelect';
 import { ConfirmDialog } from './ConfirmDialog';
 import styles from './DetailPanel.module.css';
-import { CloseIcon, PbiTypeIcon } from './icons';
+import { CloseIcon } from './icons';
 import { StatusSelect } from './StatusSelect';
 
 type Props = {
@@ -30,6 +33,7 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
   const [title, setTitle] = useState(pbi.title);
   const [description, setDescription] = useState(pbi.description);
   const [acceptanceCriteria, setAcceptanceCriteria] = useState(pbi.acceptanceCriteria);
+  const [category, setCategory] = useState<Category>(pbi.category);
   const [storyPoints, setStoryPoints] = useState(pbi.storyPoints === null ? '' : String(pbi.storyPoints));
   const [errors, setErrors] = useState<Errors>({});
   const [saved, setSaved] = useState(false);
@@ -39,6 +43,7 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
     title !== pbi.title ||
     description !== pbi.description ||
     acceptanceCriteria !== pbi.acceptanceCriteria ||
+    category !== pbi.category ||
     storyPoints !== (pbi.storyPoints === null ? '' : String(pbi.storyPoints));
 
   function save() {
@@ -50,7 +55,7 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
     setErrors(nextErrors);
     if (normalizedTitle === null || parsedPoints === undefined) return;
 
-    onSave({ title: normalizedTitle, description, acceptanceCriteria, storyPoints: parsedPoints });
+    onSave({ title: normalizedTitle, description, acceptanceCriteria, category, storyPoints: parsedPoints });
     setTitle(normalizedTitle);
     setStoryPoints(parsedPoints === null ? '' : String(parsedPoints));
     setSaved(true);
@@ -60,7 +65,8 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
     <aside className={styles.panel} aria-labelledby="detail-heading">
       <div className={styles.header}>
         <h2 id="detail-heading" className={styles.id}>
-          <PbiTypeIcon />
+          {/* 見出しの読み上げは ID だけにする。カテゴリは下の「カテゴリ」の選択で読む */}
+          <CategoryIcon category={pbi.category} ariaHidden />
           {id}
         </h2>
         <button type="button" className={styles.close} onClick={onClose} aria-label="詳細を閉じる">
@@ -131,6 +137,10 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
           <h3 id="detail-details-heading" className={styles.detailsHeading}>
             詳細
           </h3>
+          <label className={styles.detailRow}>
+            <span className={styles.label}>カテゴリ</span>
+            <CategorySelect value={category} onChange={setCategory} label="カテゴリ" />
+          </label>
           <label className={styles.detailRow}>
             <span className={styles.label}>ストーリーポイント</span>
             <input

@@ -21,7 +21,7 @@ import { type CSSProperties, type ReactNode, type Ref, useEffect, useRef, useSta
 import { type Pbi, type Status, formatPbiId } from '../backlog/model';
 import { formatPbiMarkdown, pbiUrl } from '../backlog/share';
 import styles from './BacklogTable.module.css';
-import { PbiTypeIcon } from './icons';
+import { CategoryIcon } from './CategoryIcon';
 import { StatusSelect } from './StatusSelect';
 
 type Props = {
@@ -63,7 +63,7 @@ export function BacklogTable({
               <span className="visually-hidden">並べ替え</span>
             </th>
             <th className={styles.typeCol}>
-              <span className="visually-hidden">種類</span>
+              <span className="visually-hidden">カテゴリ</span>
             </th>
             <th className={styles.idCol}>
               <span className="visually-hidden">ID</span>
@@ -269,7 +269,7 @@ function RowCells({
     >
       <td className={styles.handleCol}>{handle}</td>
       <td className={styles.typeCol}>
-        <PbiTypeIcon />
+        <CategoryIcon category={pbi.category} />
       </td>
       <td className={[styles.idCol, pbi.status === 'done' && styles.doneId].filter(Boolean).join(' ')}>{id}</td>
       <td className={styles.titleCell}>

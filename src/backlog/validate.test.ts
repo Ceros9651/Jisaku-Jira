@@ -1,4 +1,4 @@
-import { pbi } from '../test/backlog';
+import { backlogOf, pbi } from '../test/backlog';
 import type { Backlog } from './model';
 import { parseBacklogJson, validateBacklog } from './validate';
 
@@ -232,6 +232,46 @@ describe('受入条件', () => {
     expect(validateBacklog(withItem(sample() as unknown as Data, { acceptanceCriteria: 1 }))).toEqual({
       ok: false,
       reason: '1 番目のプロジェクトの1 件目の acceptanceCriteria が文字列ではありません',
+    });
+  });
+});
+
+describe('カテゴリ', () => {
+  const omitCategory = ({ category: _, ...rest }: Data) => rest;
+
+  test('カテゴリ付きの version 3 はそのまま読む', () => {
+    const backlog = backlogOf(['Web', [pbi(1, { category: 'bug' }), pbi(2, { category: 'security' })]]);
+    expect(validateBacklog(backlog)).toEqual({ ok: true, backlog });
+  });
+
+  test('カテゴリの無い version 3 の PBI はタスクになる', () => {
+    const data = withProject(sample() as unknown as Data, 1, { items: [omitCategory(pbi(2))] });
+    const result = validateBacklog(data);
+    expect(result.ok && result.backlog.projects[1].items[0].category).toBe('task');
+  });
+
+  test('カテゴリの無い version 2 の PBI はタスクになる', () => {
+    const b = version2();
+    const data = {
+      ...b,
+      projects: projectsOf(b).map((p) => ({ ...p, items: (p.items as Data[]).map(omitCategory) })),
+    };
+    const result = validateBacklog(data);
+    expect(result.ok && result.backlog.projects.flatMap((p) => p.items.map((i) => i.category))).toEqual(
+      Array(12).fill('task'),
+    );
+  });
+
+  test('version 1 の PBI はタスクになる', () => {
+    const data = { ...version1(), items: (version1().items as Data[]).map(omitCategory) };
+    const result = validateBacklog(data);
+    expect(result.ok && result.backlog.projects[0].items.map((p) => p.category)).toEqual(['task', 'task']);
+  });
+
+  test('不正なカテゴリは理由を示して拒否する', () => {
+    expect(validateBacklog(withItem(sample() as unknown as Data, { category: 'epic' }))).toEqual({
+      ok: false,
+      reason: '1 番目のプロジェクトの1 件目の category が不正です',
     });
   });
 });
