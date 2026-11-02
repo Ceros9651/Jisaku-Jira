@@ -322,6 +322,33 @@ describe('詳細パネル', () => {
     expect(screen.getByTestId('backlog-summary')).toHaveTextContent('5 pt');
   });
 
+  test('保存ボタンで保存すると詳細パネルが閉じ、URL から PBI の指定が外れる', async () => {
+    const user = userEvent.setup();
+    seed([pbi(1, 'a'), pbi(2, 'b')]);
+    renderApp(remote);
+    await user.click(screen.getByRole('button', { name: 'b' }));
+    const panel = screen.getByRole('complementary');
+    await user.type(within(panel).getByLabelText('説明'), '詳しい説明');
+    await user.click(within(panel).getByRole('button', { name: '保存' }));
+
+    expect(storedItems()[1]).toMatchObject({ number: 2, description: '詳しい説明' });
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+    expect(window.location.hash).toBe('');
+  });
+
+  test('タイトル欄の Enter で保存しても詳細パネルが閉じる', async () => {
+    const user = userEvent.setup();
+    seed([pbi(1, 'a'), pbi(2, 'b')]);
+    window.history.replaceState(null, '', '/#PBI-2');
+    renderApp(remote);
+    const title = within(screen.getByRole('complementary')).getByLabelText('タイトル');
+    await user.clear(title);
+    await user.type(title, '新しいタイトル{Enter}');
+
+    expect(storedItems()[1]).toMatchObject({ number: 2, title: '新しいタイトル' });
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  });
+
   test('SP を空にして保存すると未設定に戻る', async () => {
     const user = userEvent.setup();
     seed([pbi(1, 'a', 3)]);
@@ -347,6 +374,7 @@ describe('詳細パネル', () => {
     await user.clear(within(panel).getByLabelText(field));
     if (value) await user.type(within(panel).getByLabelText(field), value);
     await user.click(within(panel).getByRole('button', { name: '保存' }));
+    expect(screen.getByRole('complementary')).toBeInTheDocument();
     expect(within(panel).getByRole('alert')).toHaveTextContent(message);
     expect(storedItems()[0]).toMatchObject({ title: 'a', storyPoints: null });
   });
@@ -395,7 +423,6 @@ describe('詳細パネル', () => {
     const criteria = '- ログインできる\n- 誤ったパスワードではエラーが出る';
     expect(storedItems()[1]).toMatchObject({ number: 2, title: 'b', description: '', acceptanceCriteria: criteria });
 
-    await user.click(screen.getByRole('button', { name: '詳細を閉じる' }));
     await user.click(screen.getByRole('button', { name: 'b' }));
     expect(within(screen.getByRole('complementary')).getByLabelText('受入条件')).toHaveValue(criteria);
   });

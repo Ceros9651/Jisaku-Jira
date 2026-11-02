@@ -206,11 +206,6 @@
   cursor: default;
 }
 
-.savedNote {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-
 .delete {
   margin-left: auto;
   height: 32px;
