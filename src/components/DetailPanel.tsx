@@ -36,7 +36,6 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
   const [category, setCategory] = useState<Category>(pbi.category);
   const [storyPoints, setStoryPoints] = useState(pbi.storyPoints === null ? '' : String(pbi.storyPoints));
   const [errors, setErrors] = useState<Errors>({});
-  const [saved, setSaved] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const dirty =
@@ -56,9 +55,7 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
     if (normalizedTitle === null || parsedPoints === undefined) return;
 
     onSave({ title: normalizedTitle, description, acceptanceCriteria, category, storyPoints: parsedPoints });
-    setTitle(normalizedTitle);
-    setStoryPoints(parsedPoints === null ? '' : String(parsedPoints));
-    setSaved(true);
+    onClose();
   }
 
   return (
@@ -81,7 +78,6 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
           e.preventDefault();
           save();
         }}
-        onChange={() => setSaved(false)}
       >
         <label className={styles.field}>
           {/* Jira の詳細表示に倣い、タイトルは見出しとして見せる。ラベルは読み上げ用にだけ残す */}
@@ -162,11 +158,6 @@ export function DetailPanel({ pbi, onSave, onStatusChange, onDelete, onClose }: 
           <button type="submit" className={styles.save} disabled={!dirty}>
             保存
           </button>
-          {saved && !dirty && (
-            <span className={styles.savedNote} role="status">
-              保存しました
-            </span>
-          )}
           <button type="button" className={styles.delete} onClick={() => setConfirmingDelete(true)}>
             削除
           </button>
