@@ -98,31 +98,37 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* 左の余白を無くし、SP のバッジの右の余白（8px）だけを挟んで「コピー」を置く */
+/* 左の余白を無くし、SP のバッジの右の余白（8px）だけを挟んでコピーのアイコンを置く */
 .copyCol {
-  width: 62px;
+  width: 32px;
   padding-left: 0 !important;
   text-align: left !important;
 }
 
 .copy {
-  /* 一番長い「コピー失敗」が収まる幅で固定し、文字が変わっても列をずらさない */
-  width: 54px;
+  /* 押しやすい 24px 角にし、アイコン（16px）の左の余白 4px を引いて SP との間を 8px にする。状態が変わっても大きさは変えない */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-left: -4px;
   padding: 0;
   border: 0;
   border-radius: var(--radius-control);
   background: none;
   color: var(--text-muted);
-  font-size: var(--text-xs);
-  text-align: left;
-  white-space: nowrap;
   cursor: pointer;
 }
 
 .row:hover .copy,
 .copy:focus-visible {
   color: var(--text);
-  text-decoration: underline;
+}
+
+/* 書き込めなかったときは、アイコンの形を変えず色だけ警告の赤にする */
+.row .copy[data-copy-state='failed'] {
+  color: var(--danger);
 }
 
 .handle {
