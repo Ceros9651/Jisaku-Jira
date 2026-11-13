@@ -1,6 +1,6 @@
 ---
 name: "OPSX: Archive"
-description: "Archive a completed change in the experimental workflow"
+description: "Archive a completed change in the experimental workflow, then create a PR to dev via the /createPR flow"
 allowed-tools: Bash(openspec:*)
 category: "Workflow"
 tags: ["workflow", "archive", "experimental"]
@@ -177,6 +177,18 @@ In both branches, never create the root as a side effect: do not run `openspec i
    - Spec sync status (synced / sync skipped / no delta specs)
    - Note about any warnings (incomplete artifacts/tasks)
 
+7. **Create the PR (project-specific: runs the `/createPR` flow)**
+
+   Run this step only when step 5 actually moved the change into the archive. If the archive was cancelled or failed (including "Archive Failed"), stop after the summary and do not start the PR flow.
+
+   After showing the archive summary, read `.claude/skills/createPR/SKILL.md` and follow it inline from its section 1 to the end, exactly as if the user had run `/createPR`. That skill has `disable-model-invocation: true`, so do not try to call it with the Skill tool — read the file and follow its steps yourself. Every approval it requires (commit, push, PR creation) still goes through AskUserQuestion; archiving does not count as approval for any of them.
+
+   Inputs for that flow:
+   - `$ARGUMENTS` of `/createPR`: treat as empty. The argument of `/opsx:archive` is the change name, not a PR note.
+   - The archived change's `proposal.md` (now under `<planningHome.changesDir>/archive/<target-name>/`) is material for the title and body, as the skill's section 3 describes.
+   - The archive leaves uncommitted changes (the moved change directory and any synced main specs). In the skill's section 2, propose them as their own commit following the repository's convention, for example `chore: <change-name> をアーカイブし、仕様を main spec に反映する` (or `chore: <change-name> をアーカイブする` when there were no delta specs). If other uncommitted changes, such as implementation, are also present, propose them as a separate commit rather than mixing them into the archive commit.
+   - If the skill's preconditions stop it (on `dev`/`main`, `gh` not logged in, a PR already open, and so on), report that the archive itself is complete and relay the reason the PR was not created.
+
 **Output On Success**
 
 ```markdown
@@ -251,3 +263,4 @@ Target archive directory already exists.
 - Existing CLI checks, resolved paths, prompts, and command contracts are unchanged
 - Artifact rules constrain only the specs being written and are never operation guidance
 - Never copy runtime context, operation guidance, or artifact-rule text verbatim into output files
+- After a successful archive, always continue into the `/createPR` flow (step 7); never commit, push, or create a PR without the approvals that flow requires
