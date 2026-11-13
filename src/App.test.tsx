@@ -491,7 +491,16 @@ describe('コピー', () => {
     expect(window.location.hash).toBe('');
   });
 
-  test('成功すると「コピー済み」にして読み上げ、2 秒後に「コピー」に戻す', async () => {
+  test('コピーのボタンは文字ではなくアイコンで、ツールチップは「コピー」', () => {
+    seed([pbi(1, 'a')]);
+    renderApp(remote);
+    const button = screen.getByRole('button', { name: 'PBI-1 をコピー' });
+    expect(button).toHaveTextContent('');
+    expect(button).toHaveAttribute('title', 'コピー');
+    expect(button.querySelector('svg')).toBeInTheDocument();
+  });
+
+  test('成功するとチェックにして読み上げ、2 秒後にコピーのアイコンに戻す', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
@@ -499,21 +508,21 @@ describe('コピー', () => {
     renderApp(remote);
     const button = screen.getByRole('button', { name: 'PBI-3 をコピー' });
     await user.click(button);
-    expect(button).toHaveTextContent('コピー済み');
+    expect(button).toHaveAttribute('data-copy-state', 'copied');
     expect(screen.getByText('PBI-3 をコピーしました')).toHaveAttribute('role', 'status');
-    expect(screen.getByRole('button', { name: 'PBI-1 をコピー' })).toHaveTextContent(/^コピー$/);
+    expect(screen.getByRole('button', { name: 'PBI-1 をコピー' })).toHaveAttribute('data-copy-state', 'idle');
     await act(() => vi.advanceTimersByTimeAsync(2000));
-    expect(button).toHaveTextContent(/^コピー$/);
+    expect(button).toHaveAttribute('data-copy-state', 'idle');
   });
 
-  test('クリップボードに書き込めないと「コピー失敗」にし、バックログは変えない', async () => {
+  test('クリップボードに書き込めないとアイコンを失敗の状態にし、バックログは変えない', async () => {
     const user = userEvent.setup();
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'));
     seed([pbi(1, 'a'), pbi(3, 'c')]);
     renderApp(remote);
     const before = stored();
     await user.click(screen.getByRole('button', { name: 'PBI-3 をコピー' }));
-    expect(screen.getByRole('button', { name: 'PBI-3 をコピー' })).toHaveTextContent('コピー失敗');
+    expect(screen.getByRole('button', { name: 'PBI-3 をコピー' })).toHaveAttribute('data-copy-state', 'failed');
     expect(screen.getByText('PBI-3 をコピーできませんでした')).toHaveAttribute('role', 'status');
     expect(stored()).toEqual(before);
   });

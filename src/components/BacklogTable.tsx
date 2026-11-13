@@ -210,11 +210,21 @@ function StaticRow(props: RowProps) {
 
 type CopyState = 'idle' | 'copied' | 'failed';
 
-const COPY_LABELS: Record<CopyState, string> = {
-  idle: 'コピー',
-  copied: 'コピー済み',
-  failed: 'コピー失敗',
-};
+/** コピーのアイコン（四角を2つ重ねた線画）。成功したときはチェックに替える */
+function CopyIcon({ done }: { done: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      {done ? (
+        <path d="M3 8.5l3.5 3.5L13 4.5" strokeLinecap="round" strokeLinejoin="round" />
+      ) : (
+        <>
+          <rect x="5.75" y="5.75" width="8" height="8" rx="1.25" />
+          <path d="M10.25 3.5v-.5A1.25 1.25 0 0 0 9 1.75H3A1.25 1.25 0 0 0 1.75 3v6A1.25 1.25 0 0 0 3 10.25h.5" strokeLinecap="round" />
+        </>
+      )}
+    </svg>
+  );
+}
 
 /** 結果の表示を元に戻すまでの時間 */
 const COPY_RESET_MS = 2000;
@@ -295,8 +305,15 @@ function RowCells({
         )}
       </td>
       <td className={styles.copyCol}>
-        <button type="button" className={styles.copy} aria-label={`${id} をコピー`} onClick={() => void copy()}>
-          {COPY_LABELS[copyState]}
+        <button
+          type="button"
+          className={styles.copy}
+          aria-label={`${id} をコピー`}
+          title="コピー"
+          data-copy-state={copyState}
+          onClick={() => void copy()}
+        >
+          <CopyIcon done={copyState === 'copied'} />
         </button>
       </td>
     </tr>
