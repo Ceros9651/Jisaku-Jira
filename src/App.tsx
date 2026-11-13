@@ -4,6 +4,7 @@ import {
   type Pbi,
   type Status,
   STATUS_LABELS,
+  formatPbiId,
   countItems,
   findPbi,
   resolveRef,
@@ -55,6 +56,8 @@ export function App({ remote, storage: storageProp }: Props) {
   const [nameEdit, setNameEdit] = useState<'rename' | 'create' | null>(null);
   const switcherRef = useRef<HTMLButtonElement>(null);
   const [confirmingDeleteProject, setConfirmingDeleteProject] = useState(false);
+  // 一覧の削除ボタンで確認中の PBI の番号
+  const [confirmingDeletePbi, setConfirmingDeletePbi] = useState<number | null>(null);
   // このブラウザに残った以前のデータ。読めるときだけ知らせ、読めないデータには触れない
   const [legacy, setLegacy] = useState(() => {
     const result = loadLegacyBacklog(storage);
@@ -97,6 +100,13 @@ export function App({ remote, storage: storageProp }: Props) {
   /** 作成の入力欄を閉じたあと、切り替えのボタンにフォーカスを戻す */
   function focusSwitcher() {
     requestAnimationFrame(() => switcherRef.current?.focus());
+  }
+
+  function deletePbi(number: number) {
+    dispatch({ type: 'delete', projectId: project.id, number });
+    setConfirmingDeletePbi(null);
+    // 開いている PBI を消したときだけ詳細パネルを閉じる
+    if (selectedPbi?.number === number) select(null);
   }
 
   function deleteProject() {
@@ -339,6 +349,7 @@ export function App({ remote, storage: storageProp }: Props) {
                   selected={selectedPbi?.number ?? null}
                   onSelect={selectPbi}
                   onStatusChange={changeStatus}
+                  onDelete={setConfirmingDeletePbi}
                   onMove={(number, overNumber) => {
                     // 表の中の位置ではなく、Done も含めたバックログ全体の位置に置き換える
                     const toIndex = items.findIndex((p) => p.number === overNumber);
@@ -374,6 +385,7 @@ export function App({ remote, storage: storageProp }: Props) {
                   selected={selectedPbi?.number ?? null}
                   onSelect={selectPbi}
                   onStatusChange={changeStatus}
+                  onDelete={setConfirmingDeletePbi}
                 />
               </section>
             )}
@@ -423,6 +435,18 @@ export function App({ remote, storage: storageProp }: Props) {
             このブラウザに残っている以前のデータ（{describeBacklog(legacy)}
             ）を消します。共有データは変わりません。元に戻せないため、必要ならファイルに書き出してから消してください。
           </p>
+        </ConfirmDialog>
+      )}
+
+      {confirmingDeletePbi !== null && (
+        <ConfirmDialog
+          title={`${formatPbiId(confirmingDeletePbi)} を削除しますか？`}
+          confirmLabel="削除する"
+          danger
+          onConfirm={() => deletePbi(confirmingDeletePbi)}
+          onCancel={() => setConfirmingDeletePbi(null)}
+        >
+          <p>「{items.find((p) => p.number === confirmingDeletePbi)?.title}」を削除します。削除した ID は再利用されません。</p>
         </ConfirmDialog>
       )}
 

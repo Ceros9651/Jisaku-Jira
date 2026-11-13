@@ -122,8 +122,32 @@
 }
 
 .row:hover .copy,
-.copy:focus-visible {
+.copy:focus-visible,
+.row:hover .delete,
+.delete:focus-visible {
   color: var(--text);
+}
+
+/* コピーの右に、8px の間隔を空けて削除を置く。ボタンの見た目はコピーと同じ */
+.deleteCol {
+  width: 32px;
+  padding-left: 0 !important;
+  text-align: left !important;
+}
+
+.delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-left: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
 }
 
 /* 書き込めなかったときは、アイコンの形を変えず色だけ警告の赤にする */
@@ -197,10 +221,10 @@
      * ID の幅を固定し、2段目のステータスの開始位置を行ごとに揃える。
      * ステータス・SP・コピーは中身なりの幅で左から詰め、余りは最後の列に回して、間隔をステータスによらず 8px にする
      */
-    grid-template-columns: 20px 16px 48px auto auto auto 1fr;
+    grid-template-columns: 20px 16px 48px auto auto auto auto 1fr;
     grid-template-areas:
-      'handle title title title title title title'
-      'handle type id status points copy .';
+      'handle title title title title title title title'
+      'handle type id status points copy delete .';
     align-items: center;
     column-gap: var(--space-2);
     row-gap: 2px;
@@ -276,5 +300,15 @@
   .copyCol {
     grid-area: copy;
     width: auto;
+  }
+
+  .deleteCol {
+    grid-area: delete;
+    width: auto;
+  }
+
+  /* 2段目は列の間隔（8px）だけでコピーと離すので、負の左マージンは打ち消す */
+  .delete {
+    margin-left: 0;
   }
 }

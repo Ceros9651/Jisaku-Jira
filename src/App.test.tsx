@@ -555,6 +555,78 @@ describe('削除', () => {
   });
 });
 
+describe('一覧の行からの削除', () => {
+  test('削除ボタンは未完了・Done の全行にあり、アイコンでツールチップは「削除」。押しても詳細パネルは開かない', async () => {
+    const user = userEvent.setup();
+    seed([pbi(1, 'a'), { ...pbi(2, 'b'), status: 'done' }]);
+    renderApp(remote);
+    for (const id of ['PBI-1', 'PBI-2']) {
+      const button = screen.getByRole('button', { name: `${id} を削除` });
+      expect(button).toHaveTextContent('');
+      expect(button).toHaveAttribute('title', '削除');
+      expect(button.querySelector('svg')).toBeInTheDocument();
+    }
+    await user.click(screen.getByRole('button', { name: 'PBI-1 を削除' }));
+    expect(screen.getByRole('alertdialog', { name: 'PBI-1 を削除しますか？' })).toBeInTheDocument();
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+    expect(window.location.hash).toBe('');
+  });
+
+  test('確認で削除すると一覧から消え、残りの順序は変わらない', async () => {
+    const user = userEvent.setup();
+    seed([pbi(3, 'c'), pbi(1, 'a'), pbi(2, 'b')]);
+    renderApp(remote);
+    await user.click(screen.getByRole('button', { name: 'PBI-1 を削除' }));
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '削除する' }));
+    expect(rowTexts()).toEqual(['PBI-3', 'PBI-2']);
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(stored().projects[0].nextNumber).toBe(4);
+  });
+
+  test('確認で取り消すと削除しない', async () => {
+    const user = userEvent.setup();
+    seed([pbi(1, 'a'), pbi(2, 'b')]);
+    renderApp(remote);
+    await user.click(screen.getByRole('button', { name: 'PBI-2 を削除' }));
+    await user.click(screen.getByRole('button', { name: 'キャンセル' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(rowTexts()).toEqual(['PBI-1', 'PBI-2']);
+  });
+
+  test('Done の PBI も削除できる', async () => {
+    const user = userEvent.setup();
+    seed([pbi(1, 'a'), { ...pbi(5, 'e'), status: 'done' }]);
+    renderApp(remote);
+    await user.click(screen.getByRole('button', { name: 'PBI-5 を削除' }));
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '削除する' }));
+    expect(screen.queryByRole('table', { name: 'Done' })).not.toBeInTheDocument();
+    expect(rowTexts()).toEqual(['PBI-1']);
+  });
+
+  test('開いている PBI を削除すると詳細パネルが閉じる', async () => {
+    const user = userEvent.setup();
+    seed([pbi(1, 'a'), pbi(2, 'b')]);
+    window.history.replaceState(null, '', '/#PBI-2');
+    renderApp(remote);
+    expect(screen.getByRole('complementary')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'PBI-2 を削除' }));
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '削除する' }));
+    expect(rowTexts()).toEqual(['PBI-1']);
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  });
+
+  test('別の PBI を開いたまま削除しても詳細パネルは開いたまま', async () => {
+    const user = userEvent.setup();
+    seed([pbi(1, 'a'), pbi(2, 'b')]);
+    window.history.replaceState(null, '', '/#PBI-1');
+    renderApp(remote);
+    await user.click(screen.getByRole('button', { name: 'PBI-2 を削除' }));
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '削除する' }));
+    expect(rowTexts()).toEqual(['PBI-1']);
+    expect(screen.getByRole('complementary')).toBeInTheDocument();
+  });
+});
+
 describe('インポート', () => {
   const importData = { version: 1, nextNumber: 6, items: [pbi(1, 'x'), pbi(5, 'y')] };
   const jsonFile = (text: string, name = 'backup.json') => new File([text], name, { type: 'application/json' });
