@@ -31,6 +31,8 @@ type Props = {
   selected: number | null;
   onSelect: (number: number) => void;
   onStatusChange: (number: number, status: Status) => void;
+  /** 削除ボタンが押されたとき。確認と削除は呼び出し側が行う */
+  onDelete: (number: number) => void;
   /** 並べ替えできる表のときに使う。移動先は、ドロップした位置にある PBI の番号 */
   onMove?: (number: number, overNumber: number) => void;
   /** false のときは並べ替えの持ち手を出さず、ドラッグでもキーボードでも動かさない */
@@ -46,6 +48,7 @@ export function BacklogTable({
   selected,
   onSelect,
   onStatusChange,
+  onDelete,
   onMove,
   sortable = true,
   label,
@@ -80,6 +83,9 @@ export function BacklogTable({
             <th className={styles.copyCol}>
               <span className="visually-hidden">コピー</span>
             </th>
+            <th className={styles.deleteCol}>
+              <span className="visually-hidden">削除</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -91,6 +97,7 @@ export function BacklogTable({
               selected={pbi.number === selected}
               onSelect={onSelect}
               onStatusChange={onStatusChange}
+              onDelete={onDelete}
               onCopyResult={setCopyMessage}
             />
           ))}
@@ -164,6 +171,7 @@ type RowProps = {
   selected: boolean;
   onSelect: (number: number) => void;
   onStatusChange: (number: number, status: Status) => void;
+  onDelete: (number: number) => void;
   onCopyResult: (message: string) => void;
 };
 
@@ -226,6 +234,15 @@ function CopyIcon({ done }: { done: boolean }) {
   );
 }
 
+/** 削除のアイコン（ゴミ箱の線画） */
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <path d="M2.5 4h11M6 4V2.75h4V4M3.75 4l.6 9.25h7.3l.6-9.25M6.75 6.75v4M9.25 6.75v4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 /** 結果の表示を元に戻すまでの時間 */
 const COPY_RESET_MS = 2000;
 
@@ -242,6 +259,7 @@ function RowCells({
   selected,
   onSelect,
   onStatusChange,
+  onDelete,
   onCopyResult,
   rowRef,
   style,
@@ -314,6 +332,17 @@ function RowCells({
           onClick={() => void copy()}
         >
           <CopyIcon done={copyState === 'copied'} />
+        </button>
+      </td>
+      <td className={styles.deleteCol}>
+        <button
+          type="button"
+          className={styles.delete}
+          aria-label={`${id} を削除`}
+          title="削除"
+          onClick={() => onDelete(pbi.number)}
+        >
+          <TrashIcon />
         </button>
       </td>
     </tr>
